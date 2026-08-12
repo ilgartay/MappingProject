@@ -1,8 +1,8 @@
 using MapProject.Data;
-using LocationEntity = MapProject.Entities.Location;
-using MapProject.Entities;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using NetTopologySuite.Geometries;
+using LocationEntity = MapProject.Entities.Location;
 
 namespace MapProject.API.Controllers;
 
@@ -15,6 +15,22 @@ public class LocationController : ControllerBase
     public LocationController(AppDbContext context)
     {
         _context = context;
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetAll()
+    {
+        var locations = await _context.Locations
+            .Select(l => new
+            {
+                l.Id,
+                l.Name,
+                Latitude = l.Coordinates.Y,
+                Longitude = l.Coordinates.X
+            })
+            .ToListAsync();
+
+        return Ok(locations);
     }
 
     [HttpPost]
