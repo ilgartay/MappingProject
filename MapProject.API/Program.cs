@@ -59,6 +59,21 @@ var jwtSettings = builder.Configuration
                       .Get<JwtSettings>()
                   ?? throw new InvalidOperationException("appsettings.json içinde 'Jwt' bölümü bulunamadı.");
 
+// Anahtar appsettings.json'da değil; geliştirmede user-secrets, sunucuda
+// ortam değişkeni (Jwt__Key) üzerinden gelir. Eksikse uygulama açılışta
+// dursun - yoksa herkes kendi token'ını imzalayabilirdi.
+if (string.IsNullOrWhiteSpace(jwtSettings.Key))
+{
+    throw new InvalidOperationException(
+        "Jwt:Key tanımlı değil. Çalıştır: dotnet user-secrets set \"Jwt:Key\" \"<en az 32 karakter>\" --project MapProject.API");
+}
+
+// HMAC-SHA256 en az 256 bit (32 bayt) anahtar ister, kısa anahtarla çalışma anında patlar.
+if (Encoding.UTF8.GetByteCount(jwtSettings.Key) < 32)
+{
+    throw new InvalidOperationException("Jwt:Key en az 32 karakter olmalı (HMAC-SHA256 gereği).");
+}
+
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>

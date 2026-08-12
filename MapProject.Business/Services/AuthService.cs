@@ -25,7 +25,12 @@ public class AuthService : IAuthService
     {
         var user = await _context.Users
             .AsNoTracking()
-            .FirstOrDefaultAsync(u => u.Username == request.Username);
+            // Silinmiş veya pasife alınmış hesap giriş yapamaz.
+            // Bu filtreyi sorguya koymak, aşağıdaki şifre kontrolünden
+            // önce elemesini sağlıyor.
+            .FirstOrDefaultAsync(u => u.Username == request.Username
+                                      && !u.IsDeleted
+                                      && u.IsActive);
 
         // Kullanıcı yok VEYA şifre yanlış -> aynı sonuç (null).
         // Ayrı ayrı mesaj vermek "bu kullanıcı adı var" bilgisini sızdırırdı.

@@ -12,6 +12,8 @@ public static class DependencyInjection
     public static IServiceCollection AddBusinessServices(this IServiceCollection services)
     {
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<ILocationService, LocationService>();
+        services.AddScoped<IFeatureService, FeatureService>();
         return services;
     }
 }
