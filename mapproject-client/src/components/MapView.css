@@ -1,0 +1,32 @@
+.map-view {
+  width: 100%;
+  height: 100%;
+  /* Döşemeler yüklenene kadar beyaz yerine deniz rengi görünsün. */
+  background: #aad3df;
+}
+
+/* OpenLayers'ın zoom butonları varsayılan olarak küçük;
+   parmakla basılabilir boyuta getiriyoruz. */
+.map-view .ol-zoom {
+  top: 12px;
+  left: 12px;
+}
+
+.map-view .ol-control button {
+  width: 34px;
+  height: 34px;
+  font-size: 1.1rem;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--text);
+  border-radius: 6px;
+}
+
+.map-view .ol-control button:hover,
+.map-view .ol-control button:focus {
+  background: #fff;
+  color: var(--brand);
+}
+
+.map-view .ol-attribution {
+  font-size: 0.7rem;
+}

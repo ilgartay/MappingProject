@@ -1,0 +1,83 @@
+.map-page {
+  /* Header sabit yükseklikte, kalan alanın tamamını harita kaplasın. */
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.map-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 20px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  /* Harita katmanının üstünde kalması için. */
+  position: relative;
+  z-index: 1;
+}
+
+.map-header__brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  color: var(--brand);
+}
+
+.map-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.map-header__timer {
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: var(--brand-dark);
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.map-header__user {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.map-header__logout {
+  padding: 7px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.map-header__logout:hover {
+  background: var(--bg);
+  border-color: #cbd5e1;
+}
+
+/* flex:1 + min-height:0 ikilisi: harita header'dan artan alanın tamamını
+   kaplar. min-height olmadan flex çocuğu içeriğinden küçülemez ve
+   harita sayfayı taşırır. */
+.map-body {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Dar ekranda kullanıcı adını gizleyip yer açıyoruz. */
+@media (max-width: 480px) {
+  .map-header {
+    padding: 10px 14px;
+  }
+
+  .map-header__user {
+    display: none;
+  }
+}
