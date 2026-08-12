@@ -1,0 +1,118 @@
+.draw-toolbar {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  /* Haritanın kendi kontrollerinin üstünde kalsın. */
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  /* Araç çubuğunun boş alanı haritayı tıklanamaz yapmasın. */
+  pointer-events: none;
+}
+
+.draw-toolbar__buttons {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  pointer-events: auto;
+}
+
+.draw-tool {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: background 0.15s, color 0.15s;
+}
+
+.draw-tool:hover:not(:disabled) {
+  background: var(--bg);
+}
+
+.draw-tool--active {
+  background: var(--brand);
+  color: #fff;
+}
+
+.draw-tool--active:hover:not(:disabled) {
+  background: var(--brand-dark);
+}
+
+.draw-tool:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.draw-tool__count {
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.draw-tool--active .draw-tool__count {
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+
+.draw-toolbar__hint {
+  margin: 0;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.82);
+  color: #fff;
+  font-size: 0.78rem;
+  text-align: center;
+  pointer-events: auto;
+}
+
+.draw-toolbar__hint kbd {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  font-family: inherit;
+  font-size: 0.72rem;
+}
+
+@media (max-width: 560px) {
+  .draw-toolbar {
+    left: 8px;
+    right: 8px;
+    transform: none;
+  }
+
+  .draw-toolbar__buttons {
+    width: 100%;
+  }
+
+  .draw-tool {
+    flex: 1;
+    justify-content: center;
+    padding: 9px 6px;
+  }
+
+  /* Dar ekranda etiket yerine sadece ikon ve sayı sığıyor. */
+  .draw-tool span:not(.draw-tool__count) {
+    display: none;
+  }
+
+  .draw-toolbar__hint {
+    font-size: 0.72rem;
+  }
+}
