@@ -1,4 +1,5 @@
 using MapProject.Data;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NetTopologySuite.Geometries;
@@ -8,6 +9,7 @@ namespace MapProject.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize] // Geçerli JWT olmadan bu controller'ın hiçbir action'ına erişilemez.
 public class LocationController : ControllerBase
 {
     private readonly AppDbContext _context;
