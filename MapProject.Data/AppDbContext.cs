@@ -85,6 +85,9 @@ public class AppDbContext : DbContext
             entity.Property("Id").HasColumnName("id");
             entity.Property("Name").HasColumnName("name").HasMaxLength(100).IsRequired();
             entity.Property("Geometry").HasColumnName("geom").HasColumnType(geometryColumnType);
+            // HEX renk "#RRGGBB" - 7 karakter yeter.
+            entity.Property("Color").HasColumnName("color").HasMaxLength(7)
+                .IsRequired().HasDefaultValue("#009bff");
             entity.Property("CreatedDate").HasColumnName("created_date");
         });
     }

@@ -1,10 +1,9 @@
 using System.Text;
 using MapProject.Business;
+using MapProject.Data;
 using MapProject.Business.Services;
 using MapProject.Business.Settings;
-using MapProject.Data;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 
@@ -43,10 +42,9 @@ builder.Services.AddSwaggerGen(options =>
 
 builder.Services.AddControllers();
 
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(
-        builder.Configuration.GetConnectionString("DefaultConnection"),
-        o => o.UseNetTopologySuite()));
+builder.Services.AddDataServices(
+    builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection tanımlı değil."));
 
 // appsettings.json -> "Jwt" bölümünü JwtSettings sınıfına bağla.
 builder.Services.Configure<JwtSettings>(
@@ -108,11 +106,10 @@ builder.Services.AddCors(options =>
 var app = builder.Build();
 
 // Migration'ları uygula ve test kullanıcısını oluştur.
+// İşin kendisi Business katmanında; API sadece tetikliyor.
 using (var scope = app.Services.CreateScope())
 {
-    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    await context.Database.MigrateAsync();
-    await DbSeeder.SeedAsync(context);
+    await scope.ServiceProvider.GetRequiredService<IDatabaseInitializer>().InitializeAsync();
 }
 
 if (app.Environment.IsDevelopment())

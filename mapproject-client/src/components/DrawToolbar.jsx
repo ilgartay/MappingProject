@@ -39,33 +39,60 @@ const TOOLS = [
   },
 ]
 
+// Analiz aracı çizim araçlarından ayrı duruyor: geometri kaydetmiyor,
+// sadece geçici bir poligonla sorgu yapıyor.
+const ANALYSIS_TOOL = {
+  type: 'Analysis',
+  label: 'Envanter Analizi',
+  // Dar ekranda tam etiket sığmıyor; ikon tek başına da anlaşılmıyor.
+  shortLabel: 'Analiz',
+  hint: 'Geçici bir poligon çizin; altında kalan envanterler sayılacak. Bu poligon kaydedilmez.',
+  icon: (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M11 3 L19 8 L16 18 L6 18 L3 8 Z" strokeDasharray="3 2" />
+      <circle cx="11" cy="11" r="3.5" />
+      <path d="M13.6 13.6 L18 18" />
+    </svg>
+  ),
+}
+
 export default function DrawToolbar({ activeTool, onSelect, counts, disabled }) {
-  const active = TOOLS.find((tool) => tool.type === activeTool)
+  const active =
+    [...TOOLS, ANALYSIS_TOOL].find((tool) => tool.type === activeTool) ?? null
   const hasFeatures = counts.points + counts.lines + counts.polygons > 0
+
+  function renderButton(tool, extraClass = '') {
+    const isActive = tool.type === activeTool
+
+    return (
+      <button
+        key={tool.type}
+        type="button"
+        className={`draw-tool ${extraClass} ${isActive ? 'draw-tool--active' : ''}`.trim()}
+        // aria-pressed ekran okuyucuya hangi aracın seçili olduğunu söyler.
+        aria-pressed={isActive}
+        // Etiket dar ekranda gizlenebiliyor; ekran okuyucu yine tam adı okusun.
+        aria-label={tool.label}
+        disabled={disabled}
+        // Aynı butona tekrar basmak aracı kapatsın.
+        onClick={() => onSelect(isActive ? null : tool.type)}
+      >
+        {tool.icon}
+        <span className="draw-tool__label">{tool.label}</span>
+        {tool.shortLabel && <span className="draw-tool__label-short">{tool.shortLabel}</span>}
+        {tool.countKey && <span className="draw-tool__count">{counts[tool.countKey]}</span>}
+      </button>
+    )
+  }
 
   return (
     <div className="draw-toolbar">
-      <div className="draw-toolbar__buttons" role="group" aria-label="Çizim araçları">
-        {TOOLS.map((tool) => {
-          const isActive = tool.type === activeTool
+      <div className="draw-toolbar__buttons" role="group" aria-label="Harita araçları">
+        {TOOLS.map((tool) => renderButton(tool))}
 
-          return (
-            <button
-              key={tool.type}
-              type="button"
-              className={isActive ? 'draw-tool draw-tool--active' : 'draw-tool'}
-              // aria-pressed ekran okuyucuya hangi aracın seçili olduğunu söyler.
-              aria-pressed={isActive}
-              disabled={disabled}
-              // Aynı butona tekrar basmak aracı kapatsın.
-              onClick={() => onSelect(isActive ? null : tool.type)}
-            >
-              {tool.icon}
-              <span>{tool.label}</span>
-              <span className="draw-tool__count">{counts[tool.countKey]}</span>
-            </button>
-          )
-        })}
+        <span className="draw-toolbar__divider" aria-hidden="true" />
+
+        {renderButton(ANALYSIS_TOOL, 'draw-tool--analysis')}
       </div>
 
       {active ? (

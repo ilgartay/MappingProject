@@ -11,5 +11,8 @@ public class PolygonFeature
     /// <summary>EPSG:4326 (WGS84, derece) olarak saklanır.</summary>
     public required Polygon Geometry { get; set; }
 
+    /// <summary>Kullanıcının seçtiği çizim rengi, HEX (#RRGGBB).</summary>
+    public string Color { get; set; } = "#009bff";
+
     public DateTime CreatedDate { get; set; }
 }

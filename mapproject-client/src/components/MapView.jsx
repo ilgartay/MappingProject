@@ -12,8 +12,10 @@ import { fromLonLat, transformExtent } from 'ol/proj'
 import 'ol/ol.css'
 
 import { ENDPOINT_BY_GEOMETRY, createFeature, deleteFeature, fetchFeatures } from '../api/features'
+import { analyzeIntersection } from '../api/analysis'
 import { geometryToWkt, wktToFeature } from '../map/wkt'
-import { featureStyle, targetStyle } from '../map/styles'
+import { analysisStyle, featureStyle, targetStyle } from '../map/styles'
+import AnalysisPanel from './AnalysisPanel'
 import CoordinateSearch from './CoordinateSearch'
 import DrawToolbar from './DrawToolbar'
 import SaveFeatureDialog from './SaveFeatureDialog'
@@ -47,14 +49,45 @@ export default function MapView() {
   const sourceRef = useRef(null)
   const featureLayerRef = useRef(null)
   const targetSourceRef = useRef(null)
+  const analysisSourceRef = useRef(null)
   const drawRef = useRef(null)
 
-  const [activeTool, setActiveTool] = useState(null) // 'Point' | 'LineString' | 'Polygon'
+  // 'Point' | 'LineString' | 'Polygon' | 'Analysis'
+  const [activeTool, setActiveTool] = useState(null)
   const [pending, setPending] = useState(null) // kaydedilmeyi bekleyen çizim
   const [selected, setSelected] = useState(null) // silinmek üzere seçilen çizim
+  const [analysis, setAnalysis] = useState(null) // kesişim analizi sonucu
   const [counts, setCounts] = useState({ points: 0, lines: 0, polygons: 0 })
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
+
+  /**
+   * Poligonu backend'e gönderip kesişen envanterleri sayar.
+   * Hem kaydedilen poligon hem geçici analiz aracı bunu kullanıyor.
+   * @param {string} wkt EPSG:4326 poligon
+   * @param {string} title panelde gösterilecek başlık
+   * @param {number} [excludePolygonId] poligonun kendisini saymamak için
+   */
+  const runAnalysis = useCallback(async (wkt, title, excludePolygonId) => {
+    setAnalysis({ title, isLoading: true })
+
+    try {
+      const result = await analyzeIntersection(wkt, excludePolygonId)
+      setAnalysis({ title, result })
+    } catch (err) {
+      // 401 ise interceptor zaten oturumu kapatıyor, panel göstermeye gerek yok.
+      if (err.response?.status === 401) {
+        setAnalysis(null)
+        return
+      }
+      setAnalysis({ title, error: err.response?.data?.message ?? 'Analiz yapılamadı.' })
+    }
+  }, [])
+
+  const clearAnalysis = useCallback(() => {
+    analysisSourceRef.current?.clear()
+    setAnalysis(null)
+  }, [])
 
   // --- Haritayı bir kez kur ---
   useEffect(() => {
@@ -66,6 +99,11 @@ export default function MapView() {
     const targetSource = new VectorSource()
     targetSourceRef.current = targetSource
 
+    // Geçici analiz poligonu da ayrı katmanda: veritabanına gitmiyor,
+    // silme akışına takılmıyor, "Temizle" ile tek hamlede kalkıyor.
+    const analysisSource = new VectorSource()
+    analysisSourceRef.current = analysisSource
+
     const featureLayer = new VectorLayer({ source, style: featureStyle })
     featureLayerRef.current = featureLayer
 
@@ -75,6 +113,7 @@ export default function MapView() {
         new TileLayer({ source: new OSM() }),
         // Çizimler altlık haritanın üstündeki bu vektör katmanında yaşıyor.
         featureLayer,
+        new VectorLayer({ source: analysisSource, style: analysisStyle }),
         new VectorLayer({ source: targetSource, style: targetStyle }),
       ],
       view: new View({
@@ -120,6 +159,7 @@ export default function MapView() {
             // WKT 4326 -> harita 3857 dönüşümü burada oluyor.
             const feature = wktToFeature(item.wkt)
             feature.set('name', item.name)
+            feature.set('color', item.color)
             feature.setId(`${key}-${item.id}`)
             source.addFeature(feature)
           }
@@ -161,11 +201,31 @@ export default function MapView() {
     // Kaydet penceresi açıkken yeni çizim başlatılmasın.
     if (!activeTool || pending) return
 
-    const draw = new Draw({ source: sourceRef.current, type: activeTool })
+    // Analiz aracı da poligon çizer, ama başka katmana ve kaydetmeden.
+    const isAnalysis = activeTool === 'Analysis'
+
+    const draw = new Draw({
+      source: isAnalysis ? analysisSourceRef.current : sourceRef.current,
+      type: isAnalysis ? 'Polygon' : activeTool,
+    })
 
     draw.on('drawend', (event) => {
-      // Feature'ı source'a Draw kendisi ekliyor; biz sadece adını sormak
-      // için bekletiyoruz. İptal edilirse geri çıkaracağız.
+      const wkt = geometryToWkt(event.feature.getGeometry())
+
+      if (isAnalysis) {
+        // Draw, yeni feature'ı bu olaydan SONRA source'a ekliyor;
+        // o yüzden burada clear() demek sadece önceki analizi siler.
+        analysisSourceRef.current.clear()
+
+        // Aracı kapatıyoruz: sonuç paneli okunurken yanlışlıkla
+        // yeni bir poligona başlanmasın.
+        setActiveTool(null)
+        runAnalysis(wkt, 'Envanter analizi')
+        return
+      }
+
+      // Feature'ı source'a Draw kendisi ekliyor; biz sadece bilgilerini
+      // sormak için bekletiyoruz. İptal edilirse geri çıkaracağız.
       setPending({ feature: event.feature, geometryType: activeTool })
     })
 
@@ -176,7 +236,7 @@ export default function MapView() {
       map.removeInteraction(draw)
       drawRef.current = null
     }
-  }, [activeTool, pending])
+  }, [activeTool, pending, runAnalysis])
 
   // --- Çizime tıklayınca silme penceresini aç ---
   useEffect(() => {
@@ -266,15 +326,16 @@ export default function MapView() {
   }, [pending])
 
   const handleSave = useCallback(
-    async (name) => {
+    async (name, color) => {
       const { feature, geometryType } = pending
       const endpoint = ENDPOINT_BY_GEOMETRY[geometryType]
 
       // Harita 3857 -> veritabanı 4326 dönüşümü burada oluyor.
       const wkt = geometryToWkt(feature.getGeometry())
-      const saved = await createFeature(endpoint, { name, wkt })
+      const saved = await createFeature(endpoint, { name, wkt, color })
 
       feature.set('name', saved.name)
+      feature.set('color', saved.color)
       feature.setId(`${endpoint}s-${saved.id}`)
 
       setCounts((prev) => ({
@@ -284,8 +345,15 @@ export default function MapView() {
         polygons: prev.polygons + (geometryType === 'Polygon' ? 1 : 0),
       }))
       setPending(null)
+
+      // Poligon kaydedildiyse içinde kalan envanteri hemen say.
+      // await etmiyoruz: pencere kapansın, sonuç panelde belirsin.
+      // Kendisini saymaması için id'sini hariç tutuyoruz.
+      if (geometryType === 'Polygon') {
+        runAnalysis(wkt, 'Kaydedilen poligon analizi', saved.id)
+      }
     },
-    [pending],
+    [pending, runAnalysis],
   )
 
   /**
@@ -343,6 +411,16 @@ export default function MapView() {
           geometryType={pending.geometryType}
           onSave={handleSave}
           onCancel={handleCancel}
+        />
+      )}
+
+      {analysis && (
+        <AnalysisPanel
+          title={analysis.title}
+          isLoading={analysis.isLoading}
+          result={analysis.result}
+          error={analysis.error}
+          onClose={clearAnalysis}
         />
       )}
 

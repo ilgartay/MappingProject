@@ -13,6 +13,8 @@ public static class DependencyInjection
     {
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IFeatureService, FeatureService>();
+        services.AddScoped<IAnalysisService, AnalysisService>();
+        services.AddScoped<IDatabaseInitializer, DatabaseInitializer>();
         return services;
     }
 }

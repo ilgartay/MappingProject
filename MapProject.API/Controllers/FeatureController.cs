@@ -1,4 +1,5 @@
 using MapProject.Business.Dtos;
+using MapProject.Business.Exceptions;
 using MapProject.Business.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;

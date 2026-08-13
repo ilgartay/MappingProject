@@ -7,8 +7,20 @@ const TYPE_LABELS = {
   Polygon: 'Poligon',
 }
 
+// Geometri tipine göre makul bir başlangıç rengi: kullanıcı hiç
+// dokunmasa bile çizimler birbirinden ayrışsın.
+const DEFAULT_COLOR = {
+  Point: '#009bff',
+  LineString: '#db2777',
+  Polygon: '#059669',
+}
+
+// Hazır renkler; her seferinde renk seçiciyle uğraşmak yormasın.
+const PRESETS = ['#009bff', '#001a5e', '#059669', '#db2777', '#f59e0b', '#dc2626']
+
 export default function SaveFeatureDialog({ geometryType, onSave, onCancel }) {
   const [name, setName] = useState('')
+  const [color, setColor] = useState(DEFAULT_COLOR[geometryType] ?? '#009bff')
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState('')
   const inputRef = useRef(null)
@@ -31,7 +43,7 @@ export default function SaveFeatureDialog({ geometryType, onSave, onCancel }) {
     setIsSaving(true)
 
     try {
-      await onSave(trimmed)
+      await onSave(trimmed, color)
     } catch (err) {
       if (err.response?.status === 400) {
         setError(err.response.data?.message ?? 'Geometri kaydedilemedi.')
@@ -49,11 +61,11 @@ export default function SaveFeatureDialog({ geometryType, onSave, onCancel }) {
           {TYPE_LABELS[geometryType]} kaydet
         </h2>
         <p className="feature-dialog__subtitle">
-          Çizimin veritabanında saklanacağı adı girin.
+          Çizimin öznitelik bilgilerini girin.
         </p>
 
         <label className="feature-dialog__label" htmlFor="feature-name">
-          Ad
+          İsim
         </label>
         <input
           id="feature-name"
@@ -63,6 +75,37 @@ export default function SaveFeatureDialog({ geometryType, onSave, onCancel }) {
           maxLength={100}
           placeholder="Örn. Ankara merkez"
         />
+
+        <span className="feature-dialog__label feature-dialog__label--spaced">Renk</span>
+        <div className="feature-dialog__colors">
+          {PRESETS.map((preset) => (
+            <button
+              key={preset}
+              type="button"
+              className={
+                preset === color
+                  ? 'feature-dialog__swatch feature-dialog__swatch--active'
+                  : 'feature-dialog__swatch'
+              }
+              style={{ background: preset }}
+              // Renk isimleri ekran okuyucuya bir şey ifade etmez;
+              // HEX değerini okumak yine de seçimden haberdar ediyor.
+              aria-label={`Renk ${preset}`}
+              aria-pressed={preset === color}
+              onClick={() => setColor(preset)}
+            />
+          ))}
+
+          {/* Hazır renkler yetmezse tarayıcının renk seçicisi. */}
+          <label className="feature-dialog__picker">
+            <input
+              type="color"
+              value={color}
+              onChange={(e) => setColor(e.target.value)}
+              aria-label="Özel renk seç"
+            />
+          </label>
+        </div>
 
         {error && (
           <p className="feature-dialog__error" role="alert">

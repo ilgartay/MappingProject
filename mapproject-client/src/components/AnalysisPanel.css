@@ -1,0 +1,146 @@
+.analysis-panel {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  width: 240px;
+  /* Uzun listede panel ekranı taşırmasın. */
+  max-height: calc(100% - 24px);
+  display: flex;
+  flex-direction: column;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+
+.analysis-panel__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.analysis-panel__title {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--brand);
+}
+
+.analysis-panel__close {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 1.2rem;
+  line-height: 1;
+  padding: 0 2px;
+}
+
+.analysis-panel__close:hover {
+  color: var(--text);
+}
+
+.analysis-panel__total {
+  margin: 10px 0 0;
+  font-size: 0.9rem;
+}
+
+.analysis-panel__total strong {
+  font-size: 1.4rem;
+  color: var(--accent);
+}
+
+.analysis-panel__counts {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 8px 0 0;
+  border-top: 1px solid var(--border);
+  font-size: 0.8rem;
+}
+
+.analysis-panel__counts li {
+  display: flex;
+  justify-content: space-between;
+  padding: 2px 0;
+  color: var(--text-muted);
+}
+
+.analysis-panel__counts strong {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.analysis-panel__items {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 8px 0 0;
+  border-top: 1px solid var(--border);
+  /* Kesişen envanter çoksa panel değil bu liste kayar. */
+  overflow-y: auto;
+  font-size: 0.78rem;
+}
+
+.analysis-panel__items li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 0;
+}
+
+.analysis-panel__badge {
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.analysis-panel__badge--point {
+  background: #009bff;
+}
+
+.analysis-panel__badge--line {
+  background: #db2777;
+}
+
+.analysis-panel__badge--polygon {
+  background: #059669;
+}
+
+.analysis-panel__status {
+  margin: 10px 0 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.analysis-panel__status--error {
+  color: var(--danger);
+}
+
+.analysis-panel__clear {
+  margin-top: 14px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.analysis-panel__clear:hover {
+  background: var(--bg);
+}
+
+@media (max-width: 560px) {
+  .analysis-panel {
+    /* Dar ekranda sağ üstte koordinat kutusuyla çakışmasın: alta alıyoruz. */
+    top: auto;
+    bottom: 12px;
+    left: 8px;
+    right: 8px;
+    width: auto;
+    max-height: 45%;
+  }
+}

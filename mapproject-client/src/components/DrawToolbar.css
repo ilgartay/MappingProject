@@ -59,6 +59,29 @@
   cursor: not-allowed;
 }
 
+/* Kısa etiket sadece dar ekranda görünür. */
+.draw-tool__label-short {
+  display: none;
+}
+
+.draw-toolbar__divider {
+  width: 1px;
+  align-self: stretch;
+  margin: 4px 2px;
+  background: var(--border);
+}
+
+/* Analiz aracı kehribar tonunda: çizim araçlarından farklı bir iş yapıyor
+   (kayıt değil sorgu), rengi de bunu söylüyor. */
+.draw-tool--analysis.draw-tool--active {
+  background: #f59e0b;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.35);
+}
+
+.draw-tool--analysis.draw-tool--active:hover:not(:disabled) {
+  background: #d97706;
+}
+
 .draw-tool__count {
   min-width: 20px;
   padding: 1px 6px;
@@ -115,9 +138,15 @@
     padding: 9px 6px;
   }
 
-  /* Dar ekranda etiket yerine sadece ikon ve sayı sığıyor. */
-  .draw-tool span:not(.draw-tool__count) {
+  /* Dar ekranda çizim araçlarında etiket yerine ikon + sayı sığıyor;
+     ikonları (daire, çizgi, beşgen) zaten tanınıyor. */
+  .draw-tool__label {
     display: none;
+  }
+
+  /* Analiz ikonu tek başına anlaşılmıyor, kısa etiketi görünsün. */
+  .draw-tool__label-short {
+    display: inline;
   }
 
   .draw-toolbar__hint {

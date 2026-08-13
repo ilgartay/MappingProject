@@ -15,14 +15,3 @@ public interface IFeatureService
     Task<bool> DeleteLineAsync(int id);
     Task<bool> DeletePolygonAsync(int id);
 }
-
-/// <summary>
-/// WKT metni bozuk ya da beklenen geometri tipinde değilse fırlatılır.
-/// Controller bunu 400'e çeviriyor.
-/// </summary>
-public class InvalidGeometryException : Exception
-{
-    public InvalidGeometryException(string message) : base(message)
-    {
-    }
-}
