@@ -5,7 +5,29 @@
   justify-content: center;
   /* Küçük ekranlarda kart kenara yapışmasın. */
   padding: 24px 16px;
-  background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 55%, #38bdf8 100%);
+  /* Kurumsal lacivertten vurgu mavisine geçiş; üstteki radyal ışık
+     düz gradyanı biraz derinleştiriyor. */
+  background:
+    radial-gradient(circle at 22% 18%, rgba(0, 155, 255, 0.45) 0%, transparent 55%),
+    linear-gradient(135deg, #00113f 0%, #001a5e 45%, #0060b0 100%);
+}
+
+.login-card {
+  animation: login-card-in 0.35s ease-out;
+}
+
+@keyframes login-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+/* Hareketi rahatsız edici bulan kullanıcılar için kapat. */
+@media (prefers-reduced-motion: reduce) {
+  .login-card {
+    animation: none;
+  }
 }
 
 .login-card {
@@ -24,21 +46,18 @@
 }
 
 .login-card__logo {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  background: #eff6ff;
-  color: var(--brand);
-  margin-bottom: 14px;
+  /* Yükseklik sabit, oran korunuyor. */
+  height: 34px;
+  width: auto;
+  margin-bottom: 18px;
 }
 
 .login-card__header h1 {
   margin: 0 0 6px;
-  font-size: 1.5rem;
-  letter-spacing: -0.02em;
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text);
 }
 
 .login-card__header p {
@@ -80,7 +99,7 @@
 .login-field input:focus {
   outline: none;
   border-color: var(--brand);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 .login-error {

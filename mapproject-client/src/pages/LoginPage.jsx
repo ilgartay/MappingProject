@@ -44,13 +44,9 @@ export default function LoginPage() {
     <main className="login-page">
       <section className="login-card">
         <header className="login-card__header">
-          <span className="login-card__logo" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 21s-7-5.686-7-11a7 7 0 1 1 14 0c0 5.314-7 11-7 11z" />
-              <circle cx="12" cy="10" r="2.5" />
-            </svg>
-          </span>
-          <h1>MapProject</h1>
+          {/* Logo public/ altında: resmi asset gelince tek dosya değişecek. */}
+          <img className="login-card__logo" src="/basarsoft.svg" alt="Başarsoft" />
+          <h1>Harita Uygulaması</h1>
           <p>Devam etmek için giriş yapın</p>
         </header>
 

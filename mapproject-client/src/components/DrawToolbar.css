@@ -42,13 +42,16 @@
   background: var(--bg);
 }
 
+/* Aktif araç vurgu mavisiyle işaretleniyor: lacivert butonlar arasında
+   "şu an bu açık" bilgisi daha hızlı okunuyor. */
 .draw-tool--active {
-  background: var(--brand);
+  background: var(--accent);
   color: #fff;
+  box-shadow: 0 2px 8px rgba(0, 155, 255, 0.35);
 }
 
 .draw-tool--active:hover:not(:disabled) {
-  background: var(--brand-dark);
+  background: #0089e0;
 }
 
 .draw-tool:disabled {

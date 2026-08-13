@@ -2,7 +2,7 @@ import { Circle, Fill, Stroke, Style, Text } from 'ol/style'
 
 // Her geometri tipi farklı renkte: kullanıcı hangi katmana ne çizdiğini
 // tek bakışta ayırt edebilsin.
-const POINT_COLOR = '#2563eb'
+const POINT_COLOR = '#009bff'
 const LINE_COLOR = '#db2777'
 const POLYGON_COLOR = '#059669'
 

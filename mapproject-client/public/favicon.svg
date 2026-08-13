@@ -1,4 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-  <path d="M12 21s-7-5.686-7-11a7 7 0 1 1 14 0c0 5.314-7 11-7 11z" fill="#dbeafe" />
-  <circle cx="12" cy="10" r="2.5" />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Logonun işaret kısmı: açık mavi üst yüzey + lacivert gövde. -->
+  <path d="M4 24 L36 6 L60 16 L28 34 Z" fill="#009BFF" />
+  <path d="M28 34 L60 16 L60 50 L28 58 Z" fill="#001A5E" />
 </svg>

@@ -2,8 +2,13 @@
    Renkleri tek yerde tutunca sayfalar arasında tutarlılık kolaylaşıyor. */
 
 :root {
-  --brand: #2563eb;
-  --brand-dark: #1d4ed8;
+  /* Kurumsal renkler logodan alındı: lacivert gövde + parlak mavi vurgu. */
+  --brand: #001a5e;
+  --brand-dark: #00113f;
+  --accent: #009bff;
+  --accent-soft: #e6f4ff;
+  --focus-ring: rgba(0, 155, 255, 0.25);
+
   --bg: #f1f5f9;
   --surface: #ffffff;
   --text: #0f172a;
@@ -48,6 +53,6 @@ input {
 
 /* Klavye ile gezenler için görünür odak halkası. */
 :focus-visible {
-  outline: 2px solid var(--brand);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
