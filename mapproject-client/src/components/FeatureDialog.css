@@ -1,4 +1,4 @@
-.save-dialog__backdrop {
+.feature-dialog__backdrop {
   position: absolute;
   inset: 0;
   z-index: 3;
@@ -9,7 +9,7 @@
   background: rgba(15, 23, 42, 0.35);
 }
 
-.save-dialog {
+.feature-dialog {
   width: 100%;
   max-width: 340px;
   display: flex;
@@ -20,24 +20,24 @@
   padding: 22px;
 }
 
-.save-dialog__title {
+.feature-dialog__title {
   margin: 0 0 4px;
   font-size: 1.05rem;
 }
 
-.save-dialog__subtitle {
+.feature-dialog__subtitle {
   margin: 0 0 16px;
   color: var(--text-muted);
   font-size: 0.82rem;
 }
 
-.save-dialog__label {
+.feature-dialog__label {
   margin-bottom: 6px;
   font-size: 0.82rem;
   font-weight: 600;
 }
 
-.save-dialog input {
+.feature-dialog input {
   padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -47,13 +47,13 @@
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 
-.save-dialog input:focus {
+.feature-dialog input:focus {
   outline: none;
   border-color: var(--brand);
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
 }
 
-.save-dialog__error {
+.feature-dialog__error {
   margin: 10px 0 0;
   padding: 8px 11px;
   border-radius: 8px;
@@ -63,15 +63,15 @@
   font-size: 0.8rem;
 }
 
-.save-dialog__actions {
+.feature-dialog__actions {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
   margin-top: 18px;
 }
 
-.save-dialog__cancel,
-.save-dialog__submit {
+.feature-dialog__cancel,
+.feature-dialog__submit {
   padding: 9px 16px;
   border-radius: 8px;
   font-size: 0.85rem;
@@ -79,28 +79,46 @@
   transition: background 0.15s;
 }
 
-.save-dialog__cancel {
+.feature-dialog__cancel {
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
 }
 
-.save-dialog__cancel:hover:not(:disabled) {
+.feature-dialog__cancel:hover:not(:disabled) {
   background: var(--bg);
 }
 
-.save-dialog__submit {
+.feature-dialog__submit {
   border: none;
   background: var(--brand);
   color: #fff;
 }
 
-.save-dialog__submit:hover:not(:disabled) {
+.feature-dialog__submit:hover:not(:disabled) {
   background: var(--brand-dark);
 }
 
-.save-dialog__cancel:disabled,
-.save-dialog__submit:disabled {
+/* Silme geri alınamayan bir işlem; butonu kırmızı yapmak kullanıcıyı
+   yanlışlıkla tıklamaya karşı uyarıyor. */
+.feature-dialog__danger {
+  border: none;
+  background: var(--danger);
+  color: #fff;
+}
+
+.feature-dialog__danger:hover:not(:disabled) {
+  background: #b91c1c;
+}
+
+.feature-dialog__name {
+  margin: 0 0 4px;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.feature-dialog__cancel:disabled,
+.feature-dialog__submit:disabled {
   opacity: 0.65;
   cursor: not-allowed;
 }

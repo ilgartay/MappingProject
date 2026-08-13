@@ -36,6 +36,29 @@ public class FeatureController : ControllerBase
     public Task<IActionResult> CreatePolygon(FeatureCreateDto dto) =>
         CreateAsync(() => _featureService.CreatePolygonAsync(dto));
 
+    [HttpDelete("point/{id:int}")]
+    public Task<IActionResult> DeletePoint(int id) =>
+        DeleteAsync(() => _featureService.DeletePointAsync(id));
+
+    [HttpDelete("line/{id:int}")]
+    public Task<IActionResult> DeleteLine(int id) =>
+        DeleteAsync(() => _featureService.DeleteLineAsync(id));
+
+    [HttpDelete("polygon/{id:int}")]
+    public Task<IActionResult> DeletePolygon(int id) =>
+        DeleteAsync(() => _featureService.DeletePolygonAsync(id));
+
+    /// <summary>
+    /// Silinen kayıt için gövde döndürecek bir şey yok: 204 No Content.
+    /// Kayıt zaten yoksa 404.
+    /// </summary>
+    private static async Task<IActionResult> DeleteAsync(Func<Task<bool>> delete)
+    {
+        return await delete()
+            ? new NoContentResult()
+            : new NotFoundObjectResult(new { message = "Kayıt bulunamadı." });
+    }
+
     /// <summary>
     /// Üç POST action'ı da aynı hata işleyişini paylaşıyor:
     /// geometri hatası kullanıcı hatasıdır, 500 değil 400 dönmeli.

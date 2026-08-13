@@ -15,6 +15,14 @@ export async function createFeature(type, payload) {
   return data
 }
 
+/**
+ * @param {'point'|'line'|'polygon'} type
+ * @param {number} id
+ */
+export async function deleteFeature(type, id) {
+  await client.delete(`/api/Feature/${type}/${id}`)
+}
+
 /** OpenLayers geometri tipi -> API uç noktası. */
 export const ENDPOINT_BY_GEOMETRY = {
   Point: 'point',

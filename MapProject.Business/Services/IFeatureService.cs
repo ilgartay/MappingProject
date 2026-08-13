@@ -9,6 +9,11 @@ public interface IFeatureService
     Task<FeatureDto> CreatePointAsync(FeatureCreateDto dto);
     Task<FeatureDto> CreateLineAsync(FeatureCreateDto dto);
     Task<FeatureDto> CreatePolygonAsync(FeatureCreateDto dto);
+
+    /// <summary>Kayıt bulunup silindiyse true, zaten yoksa false döner.</summary>
+    Task<bool> DeletePointAsync(int id);
+    Task<bool> DeleteLineAsync(int id);
+    Task<bool> DeletePolygonAsync(int id);
 }
 
 /// <summary>

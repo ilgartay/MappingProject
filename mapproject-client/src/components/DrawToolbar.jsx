@@ -41,6 +41,7 @@ const TOOLS = [
 
 export default function DrawToolbar({ activeTool, onSelect, counts, disabled }) {
   const active = TOOLS.find((tool) => tool.type === activeTool)
+  const hasFeatures = counts.points + counts.lines + counts.polygons > 0
 
   return (
     <div className="draw-toolbar">
@@ -67,10 +68,17 @@ export default function DrawToolbar({ activeTool, onSelect, counts, disabled }) 
         })}
       </div>
 
-      {active && (
+      {active ? (
         <p className="draw-toolbar__hint">
           {active.hint} İptal için <kbd>Esc</kbd>.
         </p>
+      ) : (
+        // Silme özelliği tıklamayla çalışıyor; ipucu olmadan kimse bulamaz.
+        hasFeatures && (
+          <p className="draw-toolbar__hint draw-toolbar__hint--muted">
+            Silmek için haritadaki bir çizime tıklayın.
+          </p>
+        )
       )}
     </div>
   )

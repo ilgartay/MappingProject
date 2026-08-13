@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import './SaveFeatureDialog.css'
+import './FeatureDialog.css'
 
 const TYPE_LABELS = {
   Point: 'Nokta',
@@ -43,16 +43,16 @@ export default function SaveFeatureDialog({ geometryType, onSave, onCancel }) {
   }
 
   return (
-    <div className="save-dialog__backdrop">
-      <form className="save-dialog" onSubmit={handleSubmit}>
-        <h2 className="save-dialog__title">
+    <div className="feature-dialog__backdrop">
+      <form className="feature-dialog" onSubmit={handleSubmit}>
+        <h2 className="feature-dialog__title">
           {TYPE_LABELS[geometryType]} kaydet
         </h2>
-        <p className="save-dialog__subtitle">
+        <p className="feature-dialog__subtitle">
           Çizimin veritabanında saklanacağı adı girin.
         </p>
 
-        <label className="save-dialog__label" htmlFor="feature-name">
+        <label className="feature-dialog__label" htmlFor="feature-name">
           Ad
         </label>
         <input
@@ -65,16 +65,16 @@ export default function SaveFeatureDialog({ geometryType, onSave, onCancel }) {
         />
 
         {error && (
-          <p className="save-dialog__error" role="alert">
+          <p className="feature-dialog__error" role="alert">
             {error}
           </p>
         )}
 
-        <div className="save-dialog__actions">
-          <button type="button" className="save-dialog__cancel" onClick={onCancel} disabled={isSaving}>
+        <div className="feature-dialog__actions">
+          <button type="button" className="feature-dialog__cancel" onClick={onCancel} disabled={isSaving}>
             İptal
           </button>
-          <button type="submit" className="save-dialog__submit" disabled={isSaving}>
+          <button type="submit" className="feature-dialog__submit" disabled={isSaving}>
             {isSaving ? 'Kaydediliyor…' : 'Kaydet'}
           </button>
         </div>

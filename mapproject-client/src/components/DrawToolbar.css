@@ -82,6 +82,11 @@
   pointer-events: auto;
 }
 
+/* Silme ipucu sürekli görünüyor; aktif araç ipucundan daha sönük olsun. */
+.draw-toolbar__hint--muted {
+  background: rgba(15, 23, 42, 0.55);
+}
+
 .draw-toolbar__hint kbd {
   padding: 1px 5px;
   border-radius: 4px;

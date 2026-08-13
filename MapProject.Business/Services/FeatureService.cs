@@ -89,6 +89,31 @@ public class FeatureService : IFeatureService
         return ToDto(entity.Id, entity.Name, entity.Geometry, entity.CreatedDate);
     }
 
+    public Task<bool> DeletePointAsync(int id) => DeleteAsync(_context.Points, id);
+
+    public Task<bool> DeleteLineAsync(int id) => DeleteAsync(_context.Lines, id);
+
+    public Task<bool> DeletePolygonAsync(int id) => DeleteAsync(_context.Polygons, id);
+
+    /// <summary>
+    /// Üç tablo için ortak silme. Kaydı önce çekiyoruz: yoksa controller'ın
+    /// 404 dönebilmesi için bunu bilmesi gerekiyor.
+    /// </summary>
+    private async Task<bool> DeleteAsync<TEntity>(DbSet<TEntity> set, int id)
+        where TEntity : class
+    {
+        var entity = await set.FindAsync(id);
+
+        if (entity is null)
+        {
+            return false;
+        }
+
+        set.Remove(entity);
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
     private static FeatureDto ToDto(int id, string name, Geometry geometry, DateTime createdDate) =>
         new()
         {

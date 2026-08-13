@@ -9,16 +9,34 @@ import Draw from 'ol/interaction/Draw'
 import { fromLonLat, transformExtent } from 'ol/proj'
 import 'ol/ol.css'
 
-import { ENDPOINT_BY_GEOMETRY, createFeature, fetchFeatures } from '../api/features'
+import { ENDPOINT_BY_GEOMETRY, createFeature, deleteFeature, fetchFeatures } from '../api/features'
 import { geometryToWkt, wktToFeature } from '../map/wkt'
 import { featureStyle } from '../map/styles'
 import DrawToolbar from './DrawToolbar'
 import SaveFeatureDialog from './SaveFeatureDialog'
+import DeleteFeatureDialog from './DeleteFeatureDialog'
 import './MapView.css'
 
 // Türkiye'nin yaklaşık sınır kutusu: [batı, güney, doğu, kuzey] (derece)
 const TURKEY_EXTENT = [25.5, 35.7, 45.0, 42.3]
 const TURKEY_CENTER = [35.2, 39.0]
+
+/**
+ * Feature id'lerini "points-3" biçiminde kuruyoruz; buradan hem silme
+ * uç noktasını hem de veritabanı id'sini geri çıkarıyoruz.
+ * Henüz kaydedilmemiş çizimlerin id'si olmaz, o durumda null döner.
+ */
+function parseFeatureId(feature) {
+  const raw = feature.getId()
+  if (!raw) return null
+
+  const [group, id] = String(raw).split('-')
+  return {
+    countKey: group, // 'points' | 'lines' | 'polygons'
+    endpoint: group.slice(0, -1), // 'point' | 'line' | 'polygon'
+    id: Number(id),
+  }
+}
 
 export default function MapView() {
   const containerRef = useRef(null)
@@ -28,6 +46,7 @@ export default function MapView() {
 
   const [activeTool, setActiveTool] = useState(null) // 'Point' | 'LineString' | 'Polygon'
   const [pending, setPending] = useState(null) // kaydedilmeyi bekleyen çizim
+  const [selected, setSelected] = useState(null) // silinmek üzere seçilen çizim
   const [counts, setCounts] = useState({ points: 0, lines: 0, polygons: 0 })
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
@@ -145,7 +164,63 @@ export default function MapView() {
     }
   }, [activeTool, pending])
 
-  // --- Esc: devam eden çizimi iptal et ---
+  // --- Çizime tıklayınca silme penceresini aç ---
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+
+    // Çizim yapılırken veya bir pencere açıkken seçim devre dışı;
+    // yoksa çizim tıklaması aynı anda silme penceresini de açardı.
+    if (activeTool || pending || selected) return
+
+    function onClick(event) {
+      const feature = map.forEachFeatureAtPixel(event.pixel, (f) => f)
+      if (!feature) return
+
+      const parsed = parseFeatureId(feature)
+      if (!parsed) return
+
+      setSelected({
+        ...parsed,
+        feature,
+        name: feature.get('name'),
+        geometryType: feature.getGeometry().getType(),
+      })
+    }
+
+    // Üzerine gelince imleç değişsin: tıklanabilir olduğu belli olsun.
+    // İmleci kendi div'imize yazıyoruz; map.getTargetElement() harita
+    // kapatıldıktan sonra undefined dönüyor ve temizlikte patlıyor.
+    const element = containerRef.current
+
+    function onPointerMove(event) {
+      if (event.dragging) return
+      element.style.cursor = map.hasFeatureAtPixel(event.pixel) ? 'pointer' : ''
+    }
+
+    map.on('click', onClick)
+    map.on('pointermove', onPointerMove)
+
+    return () => {
+      map.un('click', onClick)
+      map.un('pointermove', onPointerMove)
+      element.style.cursor = ''
+    }
+  }, [activeTool, pending, selected])
+
+  // --- Çizim modunda imleci artı yap ---
+  useEffect(() => {
+    const element = containerRef.current
+    if (!element || !activeTool) return
+
+    element.style.cursor = 'crosshair'
+
+    return () => {
+      element.style.cursor = ''
+    }
+  }, [activeTool])
+
+  // --- Esc: devam eden çizimi ya da açık pencereyi iptal et ---
   useEffect(() => {
     function onKeyDown(event) {
       if (event.key !== 'Escape') return
@@ -153,6 +228,7 @@ export default function MapView() {
       if (drawRef.current) {
         drawRef.current.abortDrawing()
       }
+      setSelected(null)
       setActiveTool(null)
     }
 
@@ -191,6 +267,16 @@ export default function MapView() {
     [pending],
   )
 
+  const handleDelete = useCallback(async () => {
+    const { feature, endpoint, id, countKey } = selected
+
+    await deleteFeature(endpoint, id)
+
+    sourceRef.current.removeFeature(feature)
+    setCounts((prev) => ({ ...prev, [countKey]: Math.max(0, prev[countKey] - 1) }))
+    setSelected(null)
+  }, [selected])
+
   return (
     <div className="map-view">
       <div className="map-view__canvas" ref={containerRef} />
@@ -219,6 +305,15 @@ export default function MapView() {
           geometryType={pending.geometryType}
           onSave={handleSave}
           onCancel={handleCancel}
+        />
+      )}
+
+      {selected && (
+        <DeleteFeatureDialog
+          name={selected.name}
+          geometryType={selected.geometryType}
+          onDelete={handleDelete}
+          onCancel={() => setSelected(null)}
         />
       )}
     </div>
