@@ -29,6 +29,7 @@ export default function MapView() {
   const [activeTool, setActiveTool] = useState(null) // 'Point' | 'LineString' | 'Polygon'
   const [pending, setPending] = useState(null) // kaydedilmeyi bekleyen çizim
   const [counts, setCounts] = useState({ points: 0, lines: 0, polygons: 0 })
+  const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
 
   // --- Haritayı bir kez kur ---
@@ -101,6 +102,8 @@ export default function MapView() {
         if (!cancelled && err.response?.status !== 401) {
           setError('Kayıtlı çizimler yüklenemedi.')
         }
+      } finally {
+        if (!cancelled) setIsLoading(false)
       }
     }
 
@@ -196,8 +199,14 @@ export default function MapView() {
         activeTool={activeTool}
         onSelect={setActiveTool}
         counts={counts}
-        disabled={pending !== null}
+        disabled={pending !== null || isLoading}
       />
+
+      {isLoading && (
+        <p className="map-view__loading" role="status">
+          Kayıtlı çizimler yükleniyor…
+        </p>
+      )}
 
       {error && (
         <p className="map-view__error" role="alert">

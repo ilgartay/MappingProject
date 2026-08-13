@@ -17,10 +17,25 @@ public class AppDbContext : DbContext
     public DbSet<PolygonFeature> Polygons { get; set; } = null!;
 
     /// <summary>
-    /// Kaydetmeden hemen önce değişen User satırlarına modified_date damgası vurur.
-    /// Bunu burada yapmak, güncelleme yapan her servisin tek tek hatırlamasından güvenli.
+    /// Değişen User satırlarına modified_date damgası vurur.
+    /// EF'in bütün kaydetme aşırı yüklemeleri bu iki metoda iniyor; damgayı
+    /// burada vurunca senkron SaveChanges() çağrısı da kapsanmış oluyor.
     /// </summary>
-    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        StampModifiedUsers();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    public override Task<int> SaveChangesAsync(
+        bool acceptAllChangesOnSuccess,
+        CancellationToken cancellationToken = default)
+    {
+        StampModifiedUsers();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    private void StampModifiedUsers()
     {
         foreach (var entry in ChangeTracker.Entries<User>())
         {
@@ -29,13 +44,19 @@ public class AppDbContext : DbContext
                 entry.Entity.ModifiedDate = DateTime.UtcNow;
             }
         }
-
-        return base.SaveChangesAsync(cancellationToken);
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        // İlk ödevden kalan tablo. Kolonu kısıtsız "geometry" olarak açılmıştı,
+        // yani PostGIS SRID'yi 0 sayıyordu; satırlar 4326 ile yazılsa bile
+        // şema bunu garanti etmiyordu. Diğer üç tabloyla aynı hizaya getiriyoruz.
+        modelBuilder.Entity<Location>(entity =>
+        {
+            entity.Property(l => l.Coordinates).HasColumnType("geometry(Point,4326)");
+        });
 
         modelBuilder.Entity<User>(entity =>
         {
