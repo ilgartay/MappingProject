@@ -40,6 +40,17 @@ const polygonStyle = (name) =>
     text: label(name),
   })
 
+/**
+ * Koordinat aramasında gidilen noktayı işaretler.
+ * Çizimlerden ayrışsın diye içi boş kırmızı halka.
+ */
+export const targetStyle = new Style({
+  image: new Circle({
+    radius: 10,
+    stroke: new Stroke({ color: '#dc2626', width: 3 }),
+  }),
+})
+
 /** Katmandaki her feature için geometri tipine göre stil seçer. */
 export function featureStyle(feature) {
   const name = feature.get('name')

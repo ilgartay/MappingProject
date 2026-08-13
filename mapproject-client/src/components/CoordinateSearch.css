@@ -1,0 +1,85 @@
+.coord-search {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 2;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+
+.coord-search__row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.coord-search__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.coord-search__field span {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.coord-search__field input {
+  width: 88px;
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  /* iOS Safari 16px altındaki input'larda sayfayı yakınlaştırır. */
+  font-size: 16px;
+  /* Rakamlar hizalı dursun. */
+  font-variant-numeric: tabular-nums;
+}
+
+.coord-search__field input:focus {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.coord-search__submit {
+  padding: 8px 14px;
+  border: none;
+  border-radius: 7px;
+  background: var(--brand);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: background 0.15s;
+}
+
+.coord-search__submit:hover {
+  background: var(--brand-dark);
+}
+
+.coord-search__error {
+  margin: 8px 0 0;
+  color: var(--danger);
+  font-size: 0.75rem;
+}
+
+/* Dar ekranda çizim araç çubuğu üstte tam genişlik kaplıyor;
+   koordinat kutusu onun altına iniyor. */
+@media (max-width: 560px) {
+  .coord-search {
+    top: 106px;
+    left: 8px;
+    right: 8px;
+  }
+
+  .coord-search__field {
+    flex: 1;
+  }
+
+  .coord-search__field input {
+    width: 100%;
+  }
+}

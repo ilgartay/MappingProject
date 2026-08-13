@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 60" role="img" aria-label="Başarsoft">
+  <!--
+    Logo işareti: izometrik katlanmış ok.
+    Açık mavi üst yüzey + lacivert gövde.
+  -->
+  <path d="M4 20 L34 4 L58 14 L28 30 Z" fill="#009BFF" />
+  <path d="M28 30 L58 14 L58 48 L28 56 Z" fill="#001A5E" />
+
+  <!--
+    Kelime markası. Kurumsal yazı tipi elimizde olmadığı için sistem
+    fontuyla yaklaşık verildi; resmi asset gelince bu dosyayı değiştirmek
+    yeterli, kod tarafında hiçbir değişiklik gerekmiyor.
+  -->
+  <text x="72" y="43"
+        font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
+        font-size="40" font-weight="800" letter-spacing="-1.2"
+        fill="#001A5E">başarsoft</text>
+</svg>

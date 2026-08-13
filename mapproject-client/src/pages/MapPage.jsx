@@ -33,13 +33,9 @@ export default function MapPage() {
   return (
     <div className="map-page">
       <header className="map-header">
-        <div className="map-header__brand">
-          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M12 21s-7-5.686-7-11a7 7 0 1 1 14 0c0 5.314-7 11-7 11z" />
-            <circle cx="12" cy="10" r="2.5" />
-          </svg>
-          <span>MapProject</span>
-        </div>
+        {/* Logo public/ altında duruyor: resmi asset geldiğinde tek dosya
+            değiştirmek yeterli, bu bileşene dokunmaya gerek kalmıyor. */}
+        <img className="map-header__logo" src="/basarsoft.svg" alt="Başarsoft" />
 
         <div className="map-header__actions">
           <span className="map-header__timer" title="Oturum süresi">

@@ -10,7 +10,6 @@ public class AppDbContext : DbContext
     {
 
     }
-    public DbSet<Location> Locations { get; set; } = null!;
     public DbSet<User> Users { get; set; } = null!;
     public DbSet<PointFeature> Points { get; set; } = null!;
     public DbSet<LineFeature> Lines { get; set; } = null!;
@@ -49,14 +48,6 @@ public class AppDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
-
-        // İlk ödevden kalan tablo. Kolonu kısıtsız "geometry" olarak açılmıştı,
-        // yani PostGIS SRID'yi 0 sayıyordu; satırlar 4326 ile yazılsa bile
-        // şema bunu garanti etmiyordu. Diğer üç tabloyla aynı hizaya getiriyoruz.
-        modelBuilder.Entity<Location>(entity =>
-        {
-            entity.Property(l => l.Coordinates).HasColumnType("geometry(Point,4326)");
-        });
 
         modelBuilder.Entity<User>(entity =>
         {

@@ -6,12 +6,15 @@ import VectorLayer from 'ol/layer/Vector'
 import VectorSource from 'ol/source/Vector'
 import OSM from 'ol/source/OSM'
 import Draw from 'ol/interaction/Draw'
+import Feature from 'ol/Feature'
+import Point from 'ol/geom/Point'
 import { fromLonLat, transformExtent } from 'ol/proj'
 import 'ol/ol.css'
 
 import { ENDPOINT_BY_GEOMETRY, createFeature, deleteFeature, fetchFeatures } from '../api/features'
 import { geometryToWkt, wktToFeature } from '../map/wkt'
-import { featureStyle } from '../map/styles'
+import { featureStyle, targetStyle } from '../map/styles'
+import CoordinateSearch from './CoordinateSearch'
 import DrawToolbar from './DrawToolbar'
 import SaveFeatureDialog from './SaveFeatureDialog'
 import DeleteFeatureDialog from './DeleteFeatureDialog'
@@ -42,6 +45,8 @@ export default function MapView() {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const sourceRef = useRef(null)
+  const featureLayerRef = useRef(null)
+  const targetSourceRef = useRef(null)
   const drawRef = useRef(null)
 
   const [activeTool, setActiveTool] = useState(null) // 'Point' | 'LineString' | 'Polygon'
@@ -56,12 +61,21 @@ export default function MapView() {
     const source = new VectorSource()
     sourceRef.current = source
 
+    // Aranan koordinatın işareti ayrı katmanda dursun: çizimlerle karışmasın,
+    // tıklayarak silme akışına da takılmasın.
+    const targetSource = new VectorSource()
+    targetSourceRef.current = targetSource
+
+    const featureLayer = new VectorLayer({ source, style: featureStyle })
+    featureLayerRef.current = featureLayer
+
     const map = new Map({
       target: containerRef.current,
       layers: [
         new TileLayer({ source: new OSM() }),
         // Çizimler altlık haritanın üstündeki bu vektör katmanında yaşıyor.
-        new VectorLayer({ source, style: featureStyle }),
+        featureLayer,
+        new VectorLayer({ source: targetSource, style: targetStyle }),
       ],
       view: new View({
         center: fromLonLat(TURKEY_CENTER),
@@ -174,7 +188,11 @@ export default function MapView() {
     if (activeTool || pending || selected) return
 
     function onClick(event) {
-      const feature = map.forEachFeatureAtPixel(event.pixel, (f) => f)
+      // layerFilter: sadece çizim katmanına bak. Olmasaydı arama işaretine
+      // tıklamak üstündeki çizimi bulmayı engellerdi.
+      const feature = map.forEachFeatureAtPixel(event.pixel, (f) => f, {
+        layerFilter: (layer) => layer === featureLayerRef.current,
+      })
       if (!feature) return
 
       const parsed = parseFeatureId(feature)
@@ -195,7 +213,10 @@ export default function MapView() {
 
     function onPointerMove(event) {
       if (event.dragging) return
-      element.style.cursor = map.hasFeatureAtPixel(event.pixel) ? 'pointer' : ''
+      const overFeature = map.hasFeatureAtPixel(event.pixel, {
+        layerFilter: (layer) => layer === featureLayerRef.current,
+      })
+      element.style.cursor = overFeature ? 'pointer' : ''
     }
 
     map.on('click', onClick)
@@ -267,6 +288,21 @@ export default function MapView() {
     [pending],
   )
 
+  /**
+   * Girilen enlem/boylama uçar ve orayı işaretler.
+   * Girdi EPSG:4326; fromLonLat haritanın EPSG:3857 sistemine çeviriyor.
+   */
+  const handleSearch = useCallback((longitude, latitude) => {
+    const center = fromLonLat([longitude, latitude])
+
+    targetSourceRef.current.clear()
+    targetSourceRef.current.addFeature(new Feature(new Point(center)))
+
+    // Anında ışınlanmak yerine animasyon: kullanıcı haritanın nereden
+    // nereye gittiğini takip edebilsin.
+    mapRef.current.getView().animate({ center, zoom: 12, duration: 800 })
+  }, [])
+
   const handleDelete = useCallback(async () => {
     const { feature, endpoint, id, countKey } = selected
 
@@ -280,6 +316,8 @@ export default function MapView() {
   return (
     <div className="map-view">
       <div className="map-view__canvas" ref={containerRef} />
+
+      <CoordinateSearch onSearch={handleSearch} />
 
       <DrawToolbar
         activeTool={activeTool}

@@ -18,12 +18,11 @@
   z-index: 1;
 }
 
-.map-header__brand {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 700;
-  color: var(--brand);
+.map-header__logo {
+  /* Yükseklik sabit, genişlik oranı korusun. */
+  height: 26px;
+  width: auto;
+  display: block;
 }
 
 .map-header__actions {
