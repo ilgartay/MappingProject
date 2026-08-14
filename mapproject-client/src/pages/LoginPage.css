@@ -1,15 +1,22 @@
+/* Dar ekran: tek kolon, gradyan zemin üstünde kart.
+   Geniş ekran (900px+): solda form, sağda Türkiye haritası. */
 .login-page {
   min-height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  /* Küçük ekranlarda kart kenara yapışmasın. */
-  padding: 24px 16px;
+  display: grid;
+  grid-template-columns: 1fr;
   /* Kurumsal lacivertten vurgu mavisine geçiş; üstteki radyal ışık
      düz gradyanı biraz derinleştiriyor. */
   background:
     radial-gradient(circle at 22% 18%, rgba(0, 155, 255, 0.45) 0%, transparent 55%),
     linear-gradient(135deg, #00113f 0%, #001a5e 45%, #0060b0 100%);
+}
+
+.login-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Küçük ekranlarda kart kenara yapışmasın. */
+  padding: 24px 16px;
 }
 
 .login-card {
@@ -134,5 +141,39 @@
 @media (max-width: 480px) {
   .login-card {
     padding: 26px 20px;
+  }
+}
+
+/* --- Geniş ekran: solda form, sağda harita ---
+   Bu blok dosyanın sonunda: yukarıdaki .login-card kurallarıyla aynı
+   özgüllükte olduğu için sonra gelmesi gerekiyor, yoksa eziliyor. */
+@media (min-width: 900px) {
+  .login-page {
+    /* Sol kolon formu taşıyacak kadar geniş, kalan alan haritaya. */
+    grid-template-columns: minmax(400px, 40%) 1fr;
+    background: var(--surface);
+  }
+
+  .login-panel {
+    padding: 40px;
+  }
+
+  .login-card {
+    /* Zaten beyaz panelin içinde; ayrıca kart görünümüne gerek yok. */
+    max-width: 340px;
+    padding: 0;
+    background: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .login-card__header {
+    /* Sola yaslı kolonda ortalanmış başlık tuhaf duruyor. */
+    text-align: left;
+  }
+
+  .login-card__logo {
+    height: 30px;
+    margin-bottom: 22px;
   }
 }

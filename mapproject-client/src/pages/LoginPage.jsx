@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
+import { useMediaQuery } from '../hooks/useMediaQuery'
+import LoginMap from '../components/LoginMap'
 import './LoginPage.css'
 
 export default function LoginPage() {
@@ -12,6 +14,9 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // Harita sadece geniş ekranda kurulsun; dar ekranda forma yer açıyoruz.
+  const showMap = useMediaQuery('(min-width: 900px)')
 
   // Giriş yapmış kullanıcı login sayfasını görmesin.
   if (isAuthenticated) {
@@ -42,56 +47,60 @@ export default function LoginPage() {
 
   return (
     <main className="login-page">
-      <section className="login-card">
-        <header className="login-card__header">
-          {/* Logo public/ altında: resmi asset gelince tek dosya değişecek. */}
-          <img className="login-card__logo" src="/basarsoft.svg" alt="Başarsoft" />
-          <h1>Harita Uygulaması</h1>
-          <p>Devam etmek için giriş yapın</p>
-        </header>
+      <section className="login-panel">
+        <div className="login-card">
+          <header className="login-card__header">
+            {/* Logo public/ altında: resmi asset gelince tek dosya değişecek. */}
+            <img className="login-card__logo" src="/basarsoft.svg" alt="Başarsoft" />
+            <h1>Harita Uygulaması</h1>
+            <p>Devam etmek için giriş yapın</p>
+          </header>
 
-        <form className="login-form" onSubmit={handleSubmit} noValidate>
-          <div className="login-field">
-            <label htmlFor="username">Kullanıcı adı</label>
-            <input
-              id="username"
-              name="username"
-              type="text"
-              autoComplete="username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="admin"
-              required
-              autoFocus
-            />
-          </div>
+          <form className="login-form" onSubmit={handleSubmit} noValidate>
+            <div className="login-field">
+              <label htmlFor="username">Kullanıcı adı</label>
+              <input
+                id="username"
+                name="username"
+                type="text"
+                autoComplete="username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="admin"
+                required
+                autoFocus
+              />
+            </div>
 
-          <div className="login-field">
-            <label htmlFor="password">Şifre</label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-            />
-          </div>
+            <div className="login-field">
+              <label htmlFor="password">Şifre</label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+              />
+            </div>
 
-          {/* role="alert" ekran okuyucunun hatayı sesli okumasını sağlar. */}
-          {error && (
-            <p className="login-error" role="alert">
-              {error}
-            </p>
-          )}
+            {/* role="alert" ekran okuyucunun hatayı sesli okumasını sağlar. */}
+            {error && (
+              <p className="login-error" role="alert">
+                {error}
+              </p>
+            )}
 
-          <button type="submit" className="login-button" disabled={isSubmitting}>
-            {isSubmitting ? 'Giriş yapılıyor…' : 'Giriş yap'}
-          </button>
-        </form>
+            <button type="submit" className="login-button" disabled={isSubmitting}>
+              {isSubmitting ? 'Giriş yapılıyor…' : 'Giriş yap'}
+            </button>
+          </form>
+        </div>
       </section>
+
+      {showMap && <LoginMap />}
     </main>
   )
 }

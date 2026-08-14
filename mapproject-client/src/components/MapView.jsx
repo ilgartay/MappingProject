@@ -15,16 +15,13 @@ import { ENDPOINT_BY_GEOMETRY, createFeature, deleteFeature, fetchFeatures } fro
 import { analyzeIntersection } from '../api/analysis'
 import { geometryToWkt, wktToFeature } from '../map/wkt'
 import { analysisStyle, featureStyle, targetStyle } from '../map/styles'
+import { TURKEY_CENTER, TURKEY_EXTENT } from '../map/turkey'
 import AnalysisPanel from './AnalysisPanel'
 import CoordinateSearch from './CoordinateSearch'
 import DrawToolbar from './DrawToolbar'
 import SaveFeatureDialog from './SaveFeatureDialog'
 import DeleteFeatureDialog from './DeleteFeatureDialog'
 import './MapView.css'
-
-// Türkiye'nin yaklaşık sınır kutusu: [batı, güney, doğu, kuzey] (derece)
-const TURKEY_EXTENT = [25.5, 35.7, 45.0, 42.3]
-const TURKEY_CENTER = [35.2, 39.0]
 
 /**
  * Feature id'lerini "points-3" biçiminde kuruyoruz; buradan hem silme

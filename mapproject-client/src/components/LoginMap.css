@@ -1,0 +1,67 @@
+.login-map {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+}
+
+.login-map__canvas {
+  width: 100%;
+  height: 100%;
+  /* Döşemeler yüklenene kadar beyaz yerine deniz rengi görünsün. */
+  background: #aad3df;
+}
+
+/* Harita dekoratif; imleç "tıklanabilir" izlenimi vermesin. */
+.login-map__canvas .ol-viewport {
+  cursor: default;
+}
+
+.login-map__tint {
+  position: absolute;
+  inset: 0;
+  /* Örtü tıklamayı yutmasın diye pointer-events kapalı. */
+  pointer-events: none;
+  background: linear-gradient(
+    135deg,
+    rgba(0, 17, 63, 0.72) 0%,
+    rgba(0, 26, 94, 0.55) 45%,
+    rgba(0, 155, 255, 0.35) 100%
+  );
+}
+
+.login-map__caption {
+  position: absolute;
+  left: 44px;
+  bottom: 44px;
+  right: 44px;
+  pointer-events: none;
+  color: #fff;
+  /* Açık renkli harita parçalarının üstünde de okunsun. */
+  text-shadow: 0 1px 12px rgba(0, 17, 63, 0.6);
+}
+
+.login-map__caption h2 {
+  margin: 0 0 6px;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.login-map__caption p {
+  margin: 0;
+  font-size: 0.92rem;
+  opacity: 0.9;
+  max-width: 34ch;
+}
+
+/* OSM'in kaynak gösterimi zorunlu; küçük ve köşede dursun. */
+.login-map .ol-attribution {
+  font-size: 0.65rem;
+  background: rgba(255, 255, 255, 0.75);
+  border-radius: 4px 0 0 0;
+}
+
+.login-map .ol-attribution ul {
+  color: #334155;
+  text-shadow: none;
+}
