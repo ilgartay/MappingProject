@@ -33,8 +33,8 @@ export default function DeleteFeatureDialog({ name, geometryType, onDelete, onCa
         <h2 className="feature-dialog__title">Çizimi sil</h2>
         <p className="feature-dialog__name">{name}</p>
         <p className="feature-dialog__subtitle">
-          Bu {TYPE_LABELS[geometryType]} veritabanından kalıcı olarak silinecek.
-          Bu işlem geri alınamaz.
+          Bu {TYPE_LABELS[geometryType]} haritadan ve listelerden kaldırılacak.
+          Kayıt veritabanında saklanmaya devam eder (soft delete).
         </p>
 
         {error && (

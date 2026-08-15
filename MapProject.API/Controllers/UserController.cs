@@ -1,6 +1,5 @@
-using System.Security.Claims;
+using MapProject.API.Extensions;
 using MapProject.Business.Dtos;
-using MapProject.Business.Exceptions;
 using MapProject.Business.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -10,11 +9,12 @@ namespace MapProject.API.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class UserController : ControllerBase
+public class UserController : ApiControllerBase
 {
     private readonly IUserService _userService;
 
-    public UserController(IUserService userService)
+    public UserController(IUserService userService, ILogger<UserController> logger)
+        : base(logger)
     {
         _userService = userService;
     }
@@ -22,7 +22,14 @@ public class UserController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        return Ok(await _userService.GetAllAsync());
+        try
+        {
+            return Ok(await _userService.GetAllAsync());
+        }
+        catch (Exception ex)
+        {
+            return HandleError(ex);
+        }
     }
 
     /// <summary>
@@ -34,27 +41,15 @@ public class UserController : ControllerBase
     {
         try
         {
-            var updated = await _userService.UpdateStatusAsync(id, dto, GetCurrentUserId());
+            var updated = await _userService.UpdateStatusAsync(id, dto, User.GetUserId());
 
             return updated is null
                 ? NotFound(new { message = "Kullanıcı bulunamadı." })
                 : Ok(updated);
         }
-        catch (InvalidUserOperationException ex)
+        catch (Exception ex)
         {
-            return BadRequest(new { message = ex.Message });
+            return HandleError(ex);
         }
-    }
-
-    /// <summary>
-    /// Token'daki "sub" claim'i kullanıcı id'sini taşıyor (AuthService koyuyor).
-    /// Claim okumak API katmanının işi; servise sade bir int gidiyor.
-    /// </summary>
-    private int GetCurrentUserId()
-    {
-        var raw = User.FindFirstValue(ClaimTypes.NameIdentifier)
-                  ?? User.FindFirstValue("sub");
-
-        return int.TryParse(raw, out var id) ? id : 0;
     }
 }

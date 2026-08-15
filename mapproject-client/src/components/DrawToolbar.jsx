@@ -103,7 +103,7 @@ export default function DrawToolbar({ activeTool, onSelect, counts, disabled }) 
         // Silme özelliği tıklamayla çalışıyor; ipucu olmadan kimse bulamaz.
         hasFeatures && (
           <p className="draw-toolbar__hint draw-toolbar__hint--muted">
-            Silmek için haritadaki bir çizime tıklayın.
+            Düzenlemek veya silmek için bir çizime tıklayın.
           </p>
         )
       )}

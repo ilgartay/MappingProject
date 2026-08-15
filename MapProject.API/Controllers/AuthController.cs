@@ -6,11 +6,12 @@ namespace MapProject.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class AuthController : ControllerBase
+public class AuthController : ApiControllerBase
 {
     private readonly IAuthService _authService;
 
-    public AuthController(IAuthService authService)
+    public AuthController(IAuthService authService, ILogger<AuthController> logger)
+        : base(logger)
     {
         _authService = authService;
     }
@@ -19,13 +20,20 @@ public class AuthController : ControllerBase
     [HttpPost("login")]
     public async Task<IActionResult> Login(LoginRequestDto request)
     {
-        var result = await _authService.LoginAsync(request);
-
-        if (result is null)
+        try
         {
-            return Unauthorized(new { message = "Kullanıcı adı veya şifre hatalı." });
-        }
+            var result = await _authService.LoginAsync(request);
 
-        return Ok(result);
+            if (result is null)
+            {
+                return Unauthorized(new { message = "Kullanıcı adı veya şifre hatalı." });
+            }
+
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            return HandleError(ex);
+        }
     }
 }

@@ -1,6 +1,6 @@
 namespace MapProject.Entities;
 
-public class User
+public class User : IModifiable
 {
     public int Id { get; set; }
     public string Username { get; set; } = string.Empty;

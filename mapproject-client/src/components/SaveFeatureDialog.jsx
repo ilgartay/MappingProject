@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { DEFAULT_COLOR, PRESET_COLORS } from '../map/colors'
 import './FeatureDialog.css'
 
 const TYPE_LABELS = {
@@ -6,17 +7,6 @@ const TYPE_LABELS = {
   LineString: 'Çizgi',
   Polygon: 'Poligon',
 }
-
-// Geometri tipine göre makul bir başlangıç rengi: kullanıcı hiç
-// dokunmasa bile çizimler birbirinden ayrışsın.
-const DEFAULT_COLOR = {
-  Point: '#009bff',
-  LineString: '#db2777',
-  Polygon: '#059669',
-}
-
-// Hazır renkler; her seferinde renk seçiciyle uğraşmak yormasın.
-const PRESETS = ['#009bff', '#001a5e', '#059669', '#db2777', '#f59e0b', '#dc2626']
 
 export default function SaveFeatureDialog({ geometryType, onSave, onCancel }) {
   const [name, setName] = useState('')
@@ -78,7 +68,7 @@ export default function SaveFeatureDialog({ geometryType, onSave, onCancel }) {
 
         <span className="feature-dialog__label feature-dialog__label--spaced">Renk</span>
         <div className="feature-dialog__colors">
-          {PRESETS.map((preset) => (
+          {PRESET_COLORS.map((preset) => (
             <button
               key={preset}
               type="button"

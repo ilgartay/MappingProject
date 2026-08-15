@@ -16,6 +16,18 @@ export async function createFeature(type, payload) {
 }
 
 /**
+ * İsim, renk ve geometriyi birlikte günceller.
+ * @param {'point'|'line'|'polygon'} type
+ * @param {number} id
+ * @param {{name: string, wkt: string, color: string}} payload
+ */
+export async function updateFeature(type, id, payload) {
+  const { data } = await client.put(`/api/Feature/${type}/${id}`, payload)
+  return data
+}
+
+/**
+ * Soft delete: sunucu satırı silmiyor, is_deleted = true yapıyor.
  * @param {'point'|'line'|'polygon'} type
  * @param {number} id
  */

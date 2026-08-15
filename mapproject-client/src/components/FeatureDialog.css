@@ -1,7 +1,9 @@
 .feature-dialog__backdrop {
   position: absolute;
   inset: 0;
-  z-index: 3;
+  /* Detay panelinin (z-index 3) üstünde: onay penceresi açıkken
+     arkadaki panele tıklanamasın. */
+  z-index: 4;
   display: flex;
   align-items: center;
   justify-content: center;

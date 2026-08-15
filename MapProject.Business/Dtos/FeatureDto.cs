@@ -14,9 +14,15 @@ public class FeatureDto
     public string Name { get; set; } = string.Empty;
     public string Wkt { get; set; } = string.Empty;
     public string Color { get; set; } = string.Empty;
-    public DateTime CreatedDate { get; set; }
+
+    // --- İzleme bilgileri ---
+    public int InsertedUserId { get; set; }
+    public DateTime InsertedDate { get; set; }
+    public DateTime? ModifiedDate { get; set; }
+    public bool IsActive { get; set; }
 }
 
+/// <summary>Yeni çizim: geometri + öznitelikler.</summary>
 public class FeatureCreateDto
 {
     [Required(ErrorMessage = "Ad zorunludur.")]
@@ -33,6 +39,27 @@ public class FeatureCreateDto
     [Required(ErrorMessage = "Renk zorunludur.")]
     [RegularExpression("^#[0-9a-fA-F]{6}$", ErrorMessage = "Renk #RRGGBB biçiminde olmalı.")]
     public string Color { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Güncelleme: isim, renk ve geometri birlikte gönderiliyor.
+/// Detay penceresinde kullanıcı hem öznitelikleri hem konumu değiştirebiliyor.
+/// </summary>
+public class FeatureUpdateDto
+{
+    [Required(ErrorMessage = "Ad zorunludur.")]
+    [MaxLength(100)]
+    public string Name { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Geometri (WKT) zorunludur.")]
+    public string Wkt { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Renk zorunludur.")]
+    [RegularExpression("^#[0-9a-fA-F]{6}$", ErrorMessage = "Renk #RRGGBB biçiminde olmalı.")]
+    public string Color { get; set; } = string.Empty;
+
+    /// <summary>Gönderilmezse mevcut değer korunur.</summary>
+    public bool? IsActive { get; set; }
 }
 
 /// <summary>Haritayı tek istekle doldurabilmek için üç listeyi birlikte döner.</summary>

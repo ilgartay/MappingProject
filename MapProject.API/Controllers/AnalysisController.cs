@@ -1,5 +1,5 @@
+using MapProject.API.Extensions;
 using MapProject.Business.Dtos;
-using MapProject.Business.Exceptions;
 using MapProject.Business.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -9,11 +9,12 @@ namespace MapProject.API.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class AnalysisController : ControllerBase
+public class AnalysisController : ApiControllerBase
 {
     private readonly IAnalysisService _analysisService;
 
-    public AnalysisController(IAnalysisService analysisService)
+    public AnalysisController(IAnalysisService analysisService, ILogger<AnalysisController> logger)
+        : base(logger)
     {
         _analysisService = analysisService;
     }
@@ -28,11 +29,11 @@ public class AnalysisController : ControllerBase
     {
         try
         {
-            return Ok(await _analysisService.IntersectAsync(request));
+            return Ok(await _analysisService.IntersectAsync(request, User.GetUserId()));
         }
-        catch (InvalidGeometryException ex)
+        catch (Exception ex)
         {
-            return BadRequest(new { message = ex.Message });
+            return HandleError(ex);
         }
     }
 }

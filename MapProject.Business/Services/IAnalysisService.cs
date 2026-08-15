@@ -7,6 +7,7 @@ public interface IAnalysisService
     /// <summary>
     /// Verilen poligonla kesişen envanterleri bulur ve sayar.
     /// Poligon veritabanına kaydedilmez, sadece sorguda kullanılır.
+    /// Sadece kullanıcının kendi envanteri sayılır.
     /// </summary>
-    Task<AnalysisResultDto> IntersectAsync(AnalysisRequestDto request);
+    Task<AnalysisResultDto> IntersectAsync(AnalysisRequestDto request, int userId);
 }

@@ -6,17 +6,26 @@ import VectorLayer from 'ol/layer/Vector'
 import VectorSource from 'ol/source/Vector'
 import OSM from 'ol/source/OSM'
 import Draw from 'ol/interaction/Draw'
+import Modify from 'ol/interaction/Modify'
+import Collection from 'ol/Collection'
 import Feature from 'ol/Feature'
 import Point from 'ol/geom/Point'
 import { fromLonLat, transformExtent } from 'ol/proj'
 import 'ol/ol.css'
 
-import { ENDPOINT_BY_GEOMETRY, createFeature, deleteFeature, fetchFeatures } from '../api/features'
+import {
+  ENDPOINT_BY_GEOMETRY,
+  createFeature,
+  deleteFeature,
+  fetchFeatures,
+  updateFeature,
+} from '../api/features'
 import { analyzeIntersection } from '../api/analysis'
 import { geometryToWkt, wktToFeature } from '../map/wkt'
 import { analysisStyle, featureStyle, targetStyle } from '../map/styles'
 import { TURKEY_CENTER, TURKEY_EXTENT } from '../map/turkey'
 import AnalysisPanel from './AnalysisPanel'
+import FeatureDetailPanel from './FeatureDetailPanel'
 import CoordinateSearch from './CoordinateSearch'
 import DrawToolbar from './DrawToolbar'
 import SaveFeatureDialog from './SaveFeatureDialog'
@@ -52,7 +61,8 @@ export default function MapView() {
   // 'Point' | 'LineString' | 'Polygon' | 'Analysis'
   const [activeTool, setActiveTool] = useState(null)
   const [pending, setPending] = useState(null) // kaydedilmeyi bekleyen çizim
-  const [selected, setSelected] = useState(null) // silinmek üzere seçilen çizim
+  const [selected, setSelected] = useState(null) // detayı açık olan çizim
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false)
   const [analysis, setAnalysis] = useState(null) // kesişim analizi sonucu
   const [counts, setCounts] = useState({ points: 0, lines: 0, polygons: 0 })
   const [isLoading, setIsLoading] = useState(true)
@@ -259,7 +269,10 @@ export default function MapView() {
         ...parsed,
         feature,
         name: feature.get('name'),
+        color: feature.get('color'),
         geometryType: feature.getGeometry().getType(),
+        // "Vazgeç" geometriyi eski haline döndürebilsin diye kopya alıyoruz.
+        originalGeometry: feature.getGeometry().clone(),
       })
     }
 
@@ -286,6 +299,19 @@ export default function MapView() {
     }
   }, [activeTool, pending, selected])
 
+  // --- Seçili objenin geometrisini düzenlenebilir yap ---
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !selected) return
+
+    // Collection'a sadece seçili feature'ı koyuyoruz: kullanıcı yanlışlıkla
+    // komşu bir çizimin köşesini oynatamasın.
+    const modify = new Modify({ features: new Collection([selected.feature]) })
+    map.addInteraction(modify)
+
+    return () => map.removeInteraction(modify)
+  }, [selected])
+
   // --- Çizim modunda imleci artı yap ---
   useEffect(() => {
     const element = containerRef.current
@@ -306,8 +332,14 @@ export default function MapView() {
       if (drawRef.current) {
         drawRef.current.abortDrawing()
       }
-      setSelected(null)
       setActiveTool(null)
+      setIsConfirmingDelete(false)
+      // Geometri değişikliği varsa geri alınsın diye state'i fonksiyonel
+      // güncelliyoruz; effect'in bağımlılığına selected eklemeye gerek kalmıyor.
+      setSelected((current) => {
+        current?.feature.setGeometry(current.originalGeometry)
+        return null
+      })
     }
 
     window.addEventListener('keydown', onKeyDown)
@@ -368,6 +400,32 @@ export default function MapView() {
     mapRef.current.getView().animate({ center, zoom: 12, duration: 800 })
   }, [])
 
+  /** Detay penceresindeki isim/renk ile haritada düzenlenen geometriyi birlikte kaydeder. */
+  const handleUpdate = useCallback(
+    async (name, color) => {
+      const { feature, endpoint, id } = selected
+
+      // Harita 3857 -> veritabanı 4326 dönüşümü burada oluyor.
+      const wkt = geometryToWkt(feature.getGeometry())
+      const saved = await updateFeature(endpoint, id, { name, wkt, color })
+
+      feature.set('name', saved.name)
+      feature.set('color', saved.color)
+      setSelected(null)
+    },
+    [selected],
+  )
+
+  /** Vazgeç: harita üzerinde sürüklenen köşeleri eski haline döndürür. */
+  const handleCancelEdit = useCallback(() => {
+    if (selected) {
+      selected.feature.setGeometry(selected.originalGeometry)
+    }
+    setSelected(null)
+    setIsConfirmingDelete(false)
+  }, [selected])
+
+  /** Onaydan sonra soft delete: sunucu satırı silmiyor, is_deleted = true yapıyor. */
   const handleDelete = useCallback(async () => {
     const { feature, endpoint, id, countKey } = selected
 
@@ -375,6 +433,7 @@ export default function MapView() {
 
     sourceRef.current.removeFeature(feature)
     setCounts((prev) => ({ ...prev, [countKey]: Math.max(0, prev[countKey] - 1) }))
+    setIsConfirmingDelete(false)
     setSelected(null)
   }, [selected])
 
@@ -422,11 +481,20 @@ export default function MapView() {
       )}
 
       {selected && (
+        <FeatureDetailPanel
+          feature={selected}
+          onSave={handleUpdate}
+          onCancel={handleCancelEdit}
+          onDeleteRequest={() => setIsConfirmingDelete(true)}
+        />
+      )}
+
+      {selected && isConfirmingDelete && (
         <DeleteFeatureDialog
           name={selected.name}
           geometryType={selected.geometryType}
           onDelete={handleDelete}
-          onCancel={() => setSelected(null)}
+          onCancel={() => setIsConfirmingDelete(false)}
         />
       )}
     </div>

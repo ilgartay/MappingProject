@@ -15,7 +15,7 @@ public class AnalysisService : IAnalysisService
         _context = context;
     }
 
-    public async Task<AnalysisResultDto> IntersectAsync(AnalysisRequestDto request)
+    public async Task<AnalysisResultDto> IntersectAsync(AnalysisRequestDto request, int userId)
     {
         var area = WktParser.Parse<Polygon>(request.Wkt, "POLYGON");
 
@@ -28,14 +28,14 @@ public class AnalysisService : IAnalysisService
         // istesek Contains/Within kullanmamız gerekirdi.
         var points = await _context.Points
             .AsNoTracking()
-            .Where(p => area.Intersects(p.Geometry))
+            .Where(p => p.InsertedUserId == userId && area.Intersects(p.Geometry))
             .OrderBy(p => p.Id)
             .Select(p => new AnalysisItemDto { Type = "point", Id = p.Id, Name = p.Name })
             .ToListAsync();
 
         var lines = await _context.Lines
             .AsNoTracking()
-            .Where(l => area.Intersects(l.Geometry))
+            .Where(l => l.InsertedUserId == userId && area.Intersects(l.Geometry))
             .OrderBy(l => l.Id)
             .Select(l => new AnalysisItemDto { Type = "line", Id = l.Id, Name = l.Name })
             .ToListAsync();
@@ -46,7 +46,8 @@ public class AnalysisService : IAnalysisService
 
         var polygons = await _context.Polygons
             .AsNoTracking()
-            .Where(p => area.Intersects(p.Geometry) && (excludeId == null || p.Id != excludeId))
+            .Where(p => p.InsertedUserId == userId && area.Intersects(p.Geometry)
+                        && (excludeId == null || p.Id != excludeId))
             .OrderBy(p => p.Id)
             .Select(p => new AnalysisItemDto { Type = "polygon", Id = p.Id, Name = p.Name })
             .ToListAsync();

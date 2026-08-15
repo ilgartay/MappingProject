@@ -1,5 +1,5 @@
+using MapProject.API.Extensions;
 using MapProject.Business.Dtos;
-using MapProject.Business.Exceptions;
 using MapProject.Business.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -8,72 +8,170 @@ namespace MapProject.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
-public class FeatureController : ControllerBase
+[Authorize] // Geçerli JWT olmadan bu controller'ın hiçbir action'ına erişilemez.
+public class FeatureController : ApiControllerBase
 {
     private readonly IFeatureService _featureService;
 
-    public FeatureController(IFeatureService featureService)
+    public FeatureController(IFeatureService featureService, ILogger<FeatureController> logger)
+        : base(logger)
     {
         _featureService = featureService;
     }
 
-    /// <summary>Üç tablodaki tüm geometrileri WKT olarak döner.</summary>
+    /// <summary>Giriş yapan kullanıcının çizimlerini WKT olarak döner.</summary>
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        return Ok(await _featureService.GetAllAsync());
+        try
+        {
+            return Ok(await _featureService.GetAllAsync(User.GetUserId()));
+        }
+        catch (Exception ex)
+        {
+            return HandleError(ex);
+        }
     }
+
+    // --- Oluşturma ---
 
     [HttpPost("point")]
-    public Task<IActionResult> CreatePoint(FeatureCreateDto dto) =>
-        CreateAsync(() => _featureService.CreatePointAsync(dto));
-
-    [HttpPost("line")]
-    public Task<IActionResult> CreateLine(FeatureCreateDto dto) =>
-        CreateAsync(() => _featureService.CreateLineAsync(dto));
-
-    [HttpPost("polygon")]
-    public Task<IActionResult> CreatePolygon(FeatureCreateDto dto) =>
-        CreateAsync(() => _featureService.CreatePolygonAsync(dto));
-
-    [HttpDelete("point/{id:int}")]
-    public Task<IActionResult> DeletePoint(int id) =>
-        DeleteAsync(() => _featureService.DeletePointAsync(id));
-
-    [HttpDelete("line/{id:int}")]
-    public Task<IActionResult> DeleteLine(int id) =>
-        DeleteAsync(() => _featureService.DeleteLineAsync(id));
-
-    [HttpDelete("polygon/{id:int}")]
-    public Task<IActionResult> DeletePolygon(int id) =>
-        DeleteAsync(() => _featureService.DeletePolygonAsync(id));
-
-    /// <summary>
-    /// Silinen kayıt için gövde döndürecek bir şey yok: 204 No Content.
-    /// Kayıt zaten yoksa 404.
-    /// </summary>
-    private static async Task<IActionResult> DeleteAsync(Func<Task<bool>> delete)
-    {
-        return await delete()
-            ? new NoContentResult()
-            : new NotFoundObjectResult(new { message = "Kayıt bulunamadı." });
-    }
-
-    /// <summary>
-    /// Üç POST action'ı da aynı hata işleyişini paylaşıyor:
-    /// geometri hatası kullanıcı hatasıdır, 500 değil 400 dönmeli.
-    /// </summary>
-    private async Task<IActionResult> CreateAsync(Func<Task<FeatureDto>> create)
+    public async Task<IActionResult> CreatePoint(FeatureCreateDto dto)
     {
         try
         {
-            var created = await create();
+            var created = await _featureService.CreatePointAsync(dto, User.GetUserId());
             return CreatedAtAction(nameof(GetAll), new { id = created.Id }, created);
         }
-        catch (InvalidGeometryException ex)
+        catch (Exception ex)
         {
-            return BadRequest(new { message = ex.Message });
+            return HandleError(ex);
         }
     }
+
+    [HttpPost("line")]
+    public async Task<IActionResult> CreateLine(FeatureCreateDto dto)
+    {
+        try
+        {
+            var created = await _featureService.CreateLineAsync(dto, User.GetUserId());
+            return CreatedAtAction(nameof(GetAll), new { id = created.Id }, created);
+        }
+        catch (Exception ex)
+        {
+            return HandleError(ex);
+        }
+    }
+
+    [HttpPost("polygon")]
+    public async Task<IActionResult> CreatePolygon(FeatureCreateDto dto)
+    {
+        try
+        {
+            var created = await _featureService.CreatePolygonAsync(dto, User.GetUserId());
+            return CreatedAtAction(nameof(GetAll), new { id = created.Id }, created);
+        }
+        catch (Exception ex)
+        {
+            return HandleError(ex);
+        }
+    }
+
+    // --- Güncelleme: isim, renk ve geometri ---
+
+    [HttpPut("point/{id:int}")]
+    public async Task<IActionResult> UpdatePoint(int id, FeatureUpdateDto dto)
+    {
+        try
+        {
+            var updated = await _featureService.UpdatePointAsync(id, dto, User.GetUserId());
+            return updated is null ? NotFoundResponse() : Ok(updated);
+        }
+        catch (Exception ex)
+        {
+            return HandleError(ex);
+        }
+    }
+
+    [HttpPut("line/{id:int}")]
+    public async Task<IActionResult> UpdateLine(int id, FeatureUpdateDto dto)
+    {
+        try
+        {
+            var updated = await _featureService.UpdateLineAsync(id, dto, User.GetUserId());
+            return updated is null ? NotFoundResponse() : Ok(updated);
+        }
+        catch (Exception ex)
+        {
+            return HandleError(ex);
+        }
+    }
+
+    [HttpPut("polygon/{id:int}")]
+    public async Task<IActionResult> UpdatePolygon(int id, FeatureUpdateDto dto)
+    {
+        try
+        {
+            var updated = await _featureService.UpdatePolygonAsync(id, dto, User.GetUserId());
+            return updated is null ? NotFoundResponse() : Ok(updated);
+        }
+        catch (Exception ex)
+        {
+            return HandleError(ex);
+        }
+    }
+
+    // --- Soft delete ---
+
+    [HttpDelete("point/{id:int}")]
+    public async Task<IActionResult> DeletePoint(int id)
+    {
+        try
+        {
+            return await _featureService.DeletePointAsync(id, User.GetUserId())
+                ? NoContent()
+                : NotFoundResponse();
+        }
+        catch (Exception ex)
+        {
+            return HandleError(ex);
+        }
+    }
+
+    [HttpDelete("line/{id:int}")]
+    public async Task<IActionResult> DeleteLine(int id)
+    {
+        try
+        {
+            return await _featureService.DeleteLineAsync(id, User.GetUserId())
+                ? NoContent()
+                : NotFoundResponse();
+        }
+        catch (Exception ex)
+        {
+            return HandleError(ex);
+        }
+    }
+
+    [HttpDelete("polygon/{id:int}")]
+    public async Task<IActionResult> DeletePolygon(int id)
+    {
+        try
+        {
+            return await _featureService.DeletePolygonAsync(id, User.GetUserId())
+                ? NoContent()
+                : NotFoundResponse();
+        }
+        catch (Exception ex)
+        {
+            return HandleError(ex);
+        }
+    }
+
+    /// <summary>
+    /// Kayıt yok, silinmiş ya da başkasına ait - üçünde de aynı cevap.
+    /// "Var ama senin değil" demek başkasının verisi hakkında bilgi sızdırır.
+    /// </summary>
+    private IActionResult NotFoundResponse() =>
+        NotFound(new { message = "Kayıt bulunamadı." });
 }
