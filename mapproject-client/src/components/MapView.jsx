@@ -470,7 +470,10 @@ export default function MapView() {
         />
       )}
 
-      {analysis && (
+      {/* Detay paneli açıkken analiz paneli gizleniyor: ikisi de sağ üstte
+          duruyor ve üst üste binince alttakinin düğmelerine erişilemiyor.
+          Sonuç state'te kalıyor, detay kapanınca panel geri geliyor. */}
+      {analysis && !selected && (
         <AnalysisPanel
           title={analysis.title}
           isLoading={analysis.isLoading}
