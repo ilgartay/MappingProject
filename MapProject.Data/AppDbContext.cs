@@ -11,6 +11,11 @@ public class AppDbContext : DbContext
 
     }
     public DbSet<User> Users { get; set; } = null!;
+    public DbSet<Role> Roles { get; set; } = null!;
+    public DbSet<Permission> Permissions { get; set; } = null!;
+    public DbSet<UserRole> UserRoles { get; set; } = null!;
+    public DbSet<RolePermission> RolePermissions { get; set; } = null!;
+    public DbSet<UserPermission> UserPermissions { get; set; } = null!;
     public DbSet<PointFeature> Points { get; set; } = null!;
     public DbSet<LineFeature> Lines { get; set; } = null!;
     public DbSet<PolygonFeature> Polygons { get; set; } = null!;
@@ -62,6 +67,56 @@ public class AppDbContext : DbContext
             entity.Property(u => u.IsDeleted).HasColumnName("is_deleted").HasDefaultValue(false);
             entity.Property(u => u.IsActive).HasColumnName("is_active").HasDefaultValue(true);
             entity.Property(u => u.ModifiedDate).HasColumnName("modified_date");
+        });
+
+        modelBuilder.Entity<Role>(entity =>
+        {
+            entity.HasIndex(r => r.Name).IsUnique();
+            entity.Property(r => r.Name).HasMaxLength(50).IsRequired();
+            entity.Property(r => r.Description).HasMaxLength(200);
+            entity.Property(r => r.InsertedDate).HasColumnName("inserted_date");
+            entity.Property(r => r.ModifiedDate).HasColumnName("modified_date");
+            entity.Property(r => r.IsDeleted).HasColumnName("is_deleted").HasDefaultValue(false);
+            entity.Property(r => r.IsActive).HasColumnName("is_active").HasDefaultValue(true);
+
+            // Silinen rol listelerde görünmesin.
+            entity.HasQueryFilter(r => !r.IsDeleted);
+        });
+
+        modelBuilder.Entity<Permission>(entity =>
+        {
+            entity.HasIndex(p => p.Code).IsUnique();
+            entity.Property(p => p.Name).HasMaxLength(100).IsRequired();
+            entity.Property(p => p.Code).HasMaxLength(50).IsRequired();
+            entity.Property(p => p.Description).HasMaxLength(200);
+        });
+
+        // Üç bağlantı tablosunun anahtarı iki kolondan oluşuyor; aynı
+        // eşleşme iki kez eklenemesin diye birincil anahtar olarak veriliyor.
+        modelBuilder.Entity<UserRole>(entity =>
+        {
+            entity.HasKey(ur => new { ur.UserId, ur.RoleId });
+            entity.HasOne(ur => ur.User).WithMany(u => u.UserRoles).HasForeignKey(ur => ur.UserId);
+            entity.HasOne(ur => ur.Role).WithMany(r => r.UserRoles).HasForeignKey(ur => ur.RoleId);
+
+            // Role'de soft delete filtresi var; bağlantı tablosunda da aynı
+            // filtre olmazsa silinmiş role ait satırlar sorgularda görünür.
+            entity.HasQueryFilter(ur => !ur.Role.IsDeleted);
+        });
+
+        modelBuilder.Entity<RolePermission>(entity =>
+        {
+            entity.HasKey(rp => new { rp.RoleId, rp.PermissionId });
+            entity.HasOne(rp => rp.Role).WithMany(r => r.RolePermissions).HasForeignKey(rp => rp.RoleId);
+            entity.HasOne(rp => rp.Permission).WithMany(p => p.RolePermissions).HasForeignKey(rp => rp.PermissionId);
+            entity.HasQueryFilter(rp => !rp.Role.IsDeleted);
+        });
+
+        modelBuilder.Entity<UserPermission>(entity =>
+        {
+            entity.HasKey(up => new { up.UserId, up.PermissionId });
+            entity.HasOne(up => up.User).WithMany(u => u.UserPermissions).HasForeignKey(up => up.UserId);
+            entity.HasOne(up => up.Permission).WithMany(p => p.UserPermissions).HasForeignKey(up => up.PermissionId);
         });
 
         ConfigureFeature<PointFeature>(modelBuilder, "tbl_point", "geometry(Point,4326)");

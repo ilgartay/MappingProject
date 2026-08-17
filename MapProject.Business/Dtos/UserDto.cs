@@ -9,6 +9,11 @@ public class UserDto
 
     /// <summary>Son güncelleme (UTC). Hiç değişmediyse null.</summary>
     public DateTime? ModifiedDate { get; set; }
+
+    public IReadOnlyList<int> RoleIds { get; set; } = [];
+
+    /// <summary>Listede okunabilir rol adları göstermek için.</summary>
+    public IReadOnlyList<string> RoleNames { get; set; } = [];
 }
 
 /// <summary>

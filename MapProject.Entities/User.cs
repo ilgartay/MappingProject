@@ -25,4 +25,9 @@ public class User : IModifiable
     /// AppDbContext.SaveChangesAsync bunu otomatik dolduruyor.
     /// </summary>
     public DateTime? ModifiedDate { get; set; }
+
+    public ICollection<UserRole> UserRoles { get; set; } = [];
+
+    /// <summary>Rolden bağımsız, doğrudan verilmiş yetkiler.</summary>
+    public ICollection<UserPermission> UserPermissions { get; set; } = [];
 }

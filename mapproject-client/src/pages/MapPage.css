@@ -82,3 +82,18 @@
     display: none;
   }
 }
+
+/* Yönetim paneli bağlantısı; sadece yetkisi olan kullanıcıya görünüyor. */
+.map-header__admin {
+  padding: 7px 13px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--brand);
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.map-header__admin:hover {
+  background: var(--accent-soft);
+}

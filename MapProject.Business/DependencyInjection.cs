@@ -15,6 +15,7 @@ public static class DependencyInjection
         services.AddScoped<IFeatureService, FeatureService>();
         services.AddScoped<IAnalysisService, AnalysisService>();
         services.AddScoped<IUserService, UserService>();
+        services.AddScoped<IRoleService, RoleService>();
         services.AddScoped<IDatabaseInitializer, DatabaseInitializer>();
         return services;
     }

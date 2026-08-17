@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 import { getRemainingMs } from '../auth/authStorage'
 import MapView from '../components/MapView'
@@ -13,7 +14,10 @@ function formatRemaining(ms) {
 }
 
 export default function MapPage() {
-  const { username, expiresAt, logout } = useAuth()
+  const { username, expiresAt, logout, hasPermission } = useAuth()
+
+  // Yönetim bağlantısı sadece yetkisi olana görünsün.
+  const canManage = hasPermission('user.manage') || hasPermission('role.manage')
   const [remaining, setRemaining] = useState(() =>
     expiresAt ? getRemainingMs(expiresAt) : 0,
   )
@@ -38,6 +42,11 @@ export default function MapPage() {
         <img className="map-header__logo" src="/basarsoft.svg" alt="Başarsoft" />
 
         <div className="map-header__actions">
+          {canManage && (
+            <Link to="/admin" className="map-header__admin">
+              Yönetim
+            </Link>
+          )}
           <span className="map-header__timer" title="Oturum süresi">
             {formatRemaining(remaining)}
           </span>
