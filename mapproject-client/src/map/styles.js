@@ -68,6 +68,15 @@ export const targetStyle = new Style({
 })
 
 /**
+ * Kullanıcıya tanımlı çizim alanının sınırı.
+ * Dolgusu yok: altındaki harita ve çizimler görünmeye devam etsin,
+ * sadece nereye çizebileceği belli olsun.
+ */
+export const allowedAreaStyle = new Style({
+  stroke: new Stroke({ color: '#7c3aed', width: 2, lineDash: [10, 6] }),
+})
+
+/**
  * Geçici analiz poligonu. Kesikli çizgi, "bu kaydedilmeyecek" mesajını
  * görsel olarak veriyor - kayıtlı poligonlar düz çizgili.
  */

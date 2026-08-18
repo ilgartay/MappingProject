@@ -10,11 +10,14 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(() => getSession())
   // Etkin yetkiler: hangi menülerin görüneceğini bunlar belirliyor.
   const [permissions, setPermissions] = useState([])
+  // Kullanıcının çizim yapabileceği alan (WKT). null ise kısıt yok.
+  const [allowedAreaWkt, setAllowedAreaWkt] = useState(null)
 
   const logout = useCallback(() => {
     clearSession()
     setSession(null)
     setPermissions([])
+    setAllowedAreaWkt(null)
   }, [])
 
   const login = useCallback(async (username, password) => {
@@ -31,7 +34,9 @@ export function AuthProvider({ children }) {
 
     fetchCurrentUser()
       .then((me) => {
-        if (!cancelled) setPermissions(me.permissions ?? [])
+        if (cancelled) return
+        setPermissions(me.permissions ?? [])
+        setAllowedAreaWkt(me.allowedAreaWkt ?? null)
       })
       .catch(() => {
         // Yetkiler alınamazsa menüler kapalı kalır; 401 ise interceptor
@@ -68,11 +73,12 @@ export function AuthProvider({ children }) {
       username: session?.username ?? null,
       expiresAt: session?.expiresAt ?? null,
       permissions,
+      allowedAreaWkt,
       hasPermission: (code) => permissions.includes(code),
       login,
       logout,
     }),
-    [session, permissions, login, logout],
+    [session, permissions, allowedAreaWkt, login, logout],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

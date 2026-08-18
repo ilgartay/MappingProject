@@ -100,4 +100,10 @@ public class CurrentUserDto
 
     /// <summary>Rollerden gelenler + doğrudan verilenler, tekilleştirilmiş kod listesi.</summary>
     public IReadOnlyList<string> Permissions { get; set; } = [];
+
+    /// <summary>
+    /// Çizim yapabileceği alan (WKT, EPSG:4326). null ise kısıt yok.
+    /// Harita bunu sınır olarak çiziyor.
+    /// </summary>
+    public string? AllowedAreaWkt { get; set; }
 }

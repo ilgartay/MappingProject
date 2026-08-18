@@ -8,10 +8,16 @@ import {
   saveUserAccess,
   updateUser,
 } from '../../api/admin'
+import { useAuth } from '../../auth/useAuth'
+import GeoAreaDialog from './GeoAreaDialog'
 
 const EMPTY_FORM = { username: '', password: '', isActive: true, roleIds: [] }
 
 export default function UsersPage() {
+  const { hasPermission } = useAuth()
+  const canManageGeo = hasPermission('geo.manage')
+
+  const [geoTarget, setGeoTarget] = useState(null) // {type, id, label}
   const [users, setUsers] = useState([])
   const [roles, setRoles] = useState([])
   const [isLoading, setIsLoading] = useState(true)
@@ -226,6 +232,17 @@ export default function UsersPage() {
                 </td>
                 <td>
                   <div className="admin-table__actions">
+                    {/* Coğrafi yetki düğmesi yalnızca yetkisi olana görünüyor. */}
+                    {canManageGeo && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setGeoTarget({ type: 'user', id: user.id, label: user.username })
+                        }
+                      >
+                        Alan
+                      </button>
+                    )}
                     <button type="button" onClick={() => openAccess(user)}>
                       Yetkiler
                     </button>
@@ -241,6 +258,10 @@ export default function UsersPage() {
             ))}
           </tbody>
         </table>
+      )}
+
+      {geoTarget && (
+        <GeoAreaDialog target={geoTarget} onClose={() => setGeoTarget(null)} />
       )}
 
       {/* --- Kullanıcı ekle / güncelle --- */}

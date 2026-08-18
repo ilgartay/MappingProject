@@ -64,3 +64,20 @@ export async function fetchCurrentUser() {
   const { data } = await client.get('/api/User/me')
   return data
 }
+
+// --- Coğrafi yetki (çizim alanı) ---
+
+/** @param {'user'|'role'} target */
+export async function fetchGeoArea(target, id) {
+  const { data } = await client.get(`/api/GeoPermission/${target}/${id}`)
+  return data
+}
+
+/**
+ * @param {'user'|'role'} target
+ * @param {{name: string, wkt: string|null}} payload wkt null ise alan kaldırılır
+ */
+export async function saveGeoArea(target, id, payload) {
+  const { data } = await client.put(`/api/GeoPermission/${target}/${id}`, payload)
+  return data
+}

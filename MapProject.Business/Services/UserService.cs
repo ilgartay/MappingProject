@@ -9,10 +9,12 @@ namespace MapProject.Business.Services;
 public class UserService : IUserService
 {
     private readonly AppDbContext _context;
+    private readonly IGeoPermissionService _geoPermissionService;
 
-    public UserService(AppDbContext context)
+    public UserService(AppDbContext context, IGeoPermissionService geoPermissionService)
     {
         _context = context;
+        _geoPermissionService = geoPermissionService;
     }
 
     public async Task<IReadOnlyList<UserDto>> GetAllAsync()
@@ -249,12 +251,15 @@ public class UserService : IUserService
             .OrderBy(code => code)
             .ToList();
 
+        var area = await _geoPermissionService.GetEffectiveAreaAsync(userId);
+
         return new CurrentUserDto
         {
             Id = user.Id,
             Username = user.Username,
             Roles = user.UserRoles.Select(ur => ur.Role.Name).ToList(),
-            Permissions = codes
+            Permissions = codes,
+            AllowedAreaWkt = area?.AsText()
         };
     }
 

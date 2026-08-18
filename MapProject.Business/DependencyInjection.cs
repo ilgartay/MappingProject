@@ -16,6 +16,7 @@ public static class DependencyInjection
         services.AddScoped<IAnalysisService, AnalysisService>();
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IRoleService, RoleService>();
+        services.AddScoped<IGeoPermissionService, GeoPermissionService>();
         services.AddScoped<IDatabaseInitializer, DatabaseInitializer>();
         return services;
     }

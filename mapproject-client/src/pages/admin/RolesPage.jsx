@@ -6,10 +6,16 @@ import {
   fetchRoles,
   updateRole,
 } from '../../api/admin'
+import { useAuth } from '../../auth/useAuth'
+import GeoAreaDialog from './GeoAreaDialog'
 
 const EMPTY_FORM = { name: '', description: '', isActive: true, permissionIds: [] }
 
 export default function RolesPage() {
+  const { hasPermission } = useAuth()
+  const canManageGeo = hasPermission('geo.manage')
+
+  const [geoTarget, setGeoTarget] = useState(null) // {type, id, label}
   const [roles, setRoles] = useState([])
   const [permissions, setPermissions] = useState([])
   const [isLoading, setIsLoading] = useState(true)
@@ -186,6 +192,16 @@ export default function RolesPage() {
                 </td>
                 <td>
                   <div className="admin-table__actions">
+                    {canManageGeo && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setGeoTarget({ type: 'role', id: role.id, label: role.name })
+                        }
+                      >
+                        Alan
+                      </button>
+                    )}
                     <button type="button" onClick={() => openEdit(role)}>
                       Güncelle
                     </button>
@@ -198,6 +214,10 @@ export default function RolesPage() {
             ))}
           </tbody>
         </table>
+      )}
+
+      {geoTarget && (
+        <GeoAreaDialog target={geoTarget} onClose={() => setGeoTarget(null)} />
       )}
 
       {form && (

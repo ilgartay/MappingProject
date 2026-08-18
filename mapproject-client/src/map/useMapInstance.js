@@ -8,7 +8,7 @@ import OSM from 'ol/source/OSM'
 import { fromLonLat, transformExtent } from 'ol/proj'
 import 'ol/ol.css'
 
-import { analysisStyle, featureStyle, targetStyle } from './styles'
+import { allowedAreaStyle, analysisStyle, featureStyle, targetStyle } from './styles'
 import { TURKEY_CENTER, TURKEY_EXTENT } from './turkey'
 
 /**
@@ -32,6 +32,9 @@ export function useMapInstance(containerRef) {
   /** Geçici analiz poligonu. */
   const analysisSourceRef = useRef(null)
 
+  /** Kullanıcıya tanımlı çizim alanının sınırı. */
+  const areaSourceRef = useRef(null)
+
   useEffect(() => {
     const source = new VectorSource()
     sourceRef.current = source
@@ -46,6 +49,9 @@ export function useMapInstance(containerRef) {
     const analysisSource = new VectorSource()
     analysisSourceRef.current = analysisSource
 
+    const areaSource = new VectorSource()
+    areaSourceRef.current = areaSource
+
     const featureLayer = new VectorLayer({ source, style: featureStyle })
     featureLayerRef.current = featureLayer
 
@@ -55,6 +61,7 @@ export function useMapInstance(containerRef) {
         new TileLayer({ source: new OSM() }),
         // Çizimler altlık haritanın üstündeki bu vektör katmanında yaşıyor.
         featureLayer,
+        new VectorLayer({ source: areaSource, style: allowedAreaStyle }),
         new VectorLayer({ source: analysisSource, style: analysisStyle }),
         new VectorLayer({ source: targetSource, style: targetStyle }),
       ],
@@ -84,5 +91,5 @@ export function useMapInstance(containerRef) {
     return () => map.setTarget(undefined)
   }, [containerRef])
 
-  return { mapRef, sourceRef, featureLayerRef, targetSourceRef, analysisSourceRef }
+  return { mapRef, sourceRef, featureLayerRef, targetSourceRef, analysisSourceRef, areaSourceRef }
 }

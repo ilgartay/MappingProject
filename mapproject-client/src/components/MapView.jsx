@@ -43,14 +43,14 @@ function parseFeatureId(feature) {
 }
 
 export default function MapView() {
-  const { hasPermission } = useAuth()
+  const { hasPermission, allowedAreaWkt } = useAuth()
   const canUpdate = hasPermission('feature.update')
 
   const containerRef = useRef(null)
   const drawRef = useRef(null)
 
   // Harita kurulumu ve katmanlar ayrı hook'ta; burada sadece kullanıyoruz.
-  const { mapRef, sourceRef, featureLayerRef, targetSourceRef, analysisSourceRef } =
+  const { mapRef, sourceRef, featureLayerRef, targetSourceRef, analysisSourceRef, areaSourceRef } =
     useMapInstance(containerRef)
 
   // 'Point' | 'LineString' | 'Polygon' | 'Analysis'
@@ -90,6 +90,19 @@ export default function MapView() {
     analysisSourceRef.current?.clear()
     setAnalysis(null)
   }, [analysisSourceRef])
+
+  // --- Tanımlı çizim alanını haritada göster ---
+  useEffect(() => {
+    const source = areaSourceRef.current
+    if (!source) return
+
+    source.clear()
+
+    // null = kısıt yok, çizecek sınır de yok.
+    if (allowedAreaWkt) {
+      source.addFeature(wktToFeature(allowedAreaWkt))
+    }
+  }, [allowedAreaWkt, areaSourceRef])
 
   // --- Kayıtlı geometrileri yükle ---
   useEffect(() => {

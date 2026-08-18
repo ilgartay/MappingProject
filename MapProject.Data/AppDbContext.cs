@@ -19,6 +19,7 @@ public class AppDbContext : DbContext
     public DbSet<PointFeature> Points { get; set; } = null!;
     public DbSet<LineFeature> Lines { get; set; } = null!;
     public DbSet<PolygonFeature> Polygons { get; set; } = null!;
+    public DbSet<GeoPermission> GeoPermissions { get; set; } = null!;
 
     /// <summary>
     /// Değişen kayıtlara modified_date damgası vurur.
@@ -117,6 +118,39 @@ public class AppDbContext : DbContext
             entity.HasKey(up => new { up.UserId, up.PermissionId });
             entity.HasOne(up => up.User).WithMany(u => u.UserPermissions).HasForeignKey(up => up.UserId);
             entity.HasOne(up => up.Permission).WithMany(p => p.UserPermissions).HasForeignKey(up => up.PermissionId);
+        });
+
+        modelBuilder.Entity<GeoPermission>(entity =>
+        {
+            entity.ToTable("tbl_geo_permission");
+            entity.Property(g => g.Id).HasColumnName("id");
+            entity.Property(g => g.Name).HasColumnName("name").HasMaxLength(100).IsRequired();
+            entity.Property(g => g.Color).HasColumnName("color").HasMaxLength(7)
+                .IsRequired().HasDefaultValue("#009bff");
+            entity.Property(g => g.Geometry).HasColumnName("geom")
+                .HasColumnType("geometry(Polygon,4326)");
+            entity.Property(g => g.UserId).HasColumnName("user_id");
+            entity.Property(g => g.RoleId).HasColumnName("role_id");
+            entity.Property(g => g.InsertedUserId).HasColumnName("inserted_user_id");
+            entity.Property(g => g.InsertedDate).HasColumnName("inserted_date");
+            entity.Property(g => g.ModifiedDate).HasColumnName("modified_date");
+            entity.Property(g => g.IsDeleted).HasColumnName("is_deleted").HasDefaultValue(false);
+            entity.Property(g => g.IsActive).HasColumnName("is_active").HasDefaultValue(true);
+
+            entity.HasOne(g => g.User).WithMany().HasForeignKey(g => g.UserId);
+            entity.HasOne(g => g.Role).WithMany().HasForeignKey(g => g.RoleId);
+
+            entity.HasIndex(g => g.UserId);
+            entity.HasIndex(g => g.RoleId);
+
+            // Alan ya kullanıcıya ya role ait; ikisi birden ya da ikisi de
+            // boş olamaz. Kuralı veritabanına yazıyoruz ki servis hata
+            // yapsa bile tutarsız satır oluşmasın.
+            entity.ToTable(t => t.HasCheckConstraint(
+                "CK_geo_permission_owner",
+                "(user_id IS NOT NULL AND role_id IS NULL) OR (user_id IS NULL AND role_id IS NOT NULL)"));
+
+            entity.HasQueryFilter(g => !g.IsDeleted);
         });
 
         ConfigureFeature<PointFeature>(modelBuilder, "tbl_point", "geometry(Point,4326)");

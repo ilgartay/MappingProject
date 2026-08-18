@@ -36,7 +36,8 @@ public class DatabaseInitializer : IDatabaseInitializer
         ("feature.delete", "Çizim Silme", "Çizimleri silebilir (soft delete)."),
         ("analysis.run", "Envanter Analizi", "Kesişim analizi çalıştırabilir."),
         ("user.manage", "Kullanıcı Yönetimi", "Admin panelinden kullanıcıları yönetebilir."),
-        ("role.manage", "Rol Yönetimi", "Admin panelinden rolleri ve yetkileri yönetebilir.")
+        ("role.manage", "Rol Yönetimi", "Admin panelinden rolleri ve yetkileri yönetebilir."),
+        ("geo.manage", "Coğrafi Yetki Tanımlama", "Kullanıcı ve rollere çizim alanı tanımlayabilir.")
     ];
 
     private static readonly (string Name, string Description, string[] Permissions)[] SeedRoles =
@@ -81,7 +82,22 @@ public class DatabaseInitializer : IDatabaseInitializer
 
         foreach (var (name, description, codes) in SeedRoles)
         {
-            if (existing.ContainsKey(name)) continue;
+            // Yönetici rolü zaten varsa bile sonradan eklenen yetkiler ona
+            // geçsin; yoksa yeni bir yetki tanımladığımızda admin göremiyor.
+            if (existing.TryGetValue(name, out var current))
+            {
+                if (name == "Yönetici")
+                {
+                    var owned = current.RolePermissions.Select(rp => rp.PermissionId).ToHashSet();
+
+                    foreach (var permission in permissions.Values.Where(p => !owned.Contains(p.Id)))
+                    {
+                        current.RolePermissions.Add(new RolePermission { Permission = permission });
+                    }
+                }
+
+                continue;
+            }
 
             var role = new Role
             {

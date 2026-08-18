@@ -10,10 +10,30 @@ namespace MapProject.Business.Services;
 public class FeatureService : IFeatureService
 {
     private readonly AppDbContext _context;
+    private readonly IGeoPermissionService _geoPermissionService;
 
-    public FeatureService(AppDbContext context)
+    public FeatureService(AppDbContext context, IGeoPermissionService geoPermissionService)
     {
         _context = context;
+        _geoPermissionService = geoPermissionService;
+    }
+
+    /// <summary>
+    /// Çizim, kullanıcıya tanımlı alanın içinde mi?
+    /// Covers kullanıyoruz, Contains değil: sınırın tam üstüne çizilen
+    /// nokta da geçerli sayılsın. Contains sınırı dışarıda bırakıyor.
+    /// </summary>
+    private async Task EnsureInsideAllowedAreaAsync(Geometry geometry, int userId)
+    {
+        var area = await _geoPermissionService.GetEffectiveAreaAsync(userId);
+
+        // null = tanımlı alan yok = kısıt yok.
+        if (area is null) return;
+
+        if (!area.Covers(geometry))
+        {
+            throw new OutsideAllowedAreaException();
+        }
     }
 
     public async Task<FeatureCollectionDto> GetAllAsync(int userId)
@@ -39,18 +59,21 @@ public class FeatureService : IFeatureService
     public async Task<FeatureDto> CreatePointAsync(FeatureCreateDto dto, int userId)
     {
         var entity = new PointFeature { Geometry = WktParser.Parse<Point>(dto.Wkt, "POINT") };
+        await EnsureInsideAllowedAreaAsync(entity.Geometry, userId);
         return await AddAsync(_context.Points, entity, dto, userId, entity.Geometry);
     }
 
     public async Task<FeatureDto> CreateLineAsync(FeatureCreateDto dto, int userId)
     {
         var entity = new LineFeature { Geometry = WktParser.Parse<LineString>(dto.Wkt, "LINESTRING") };
+        await EnsureInsideAllowedAreaAsync(entity.Geometry, userId);
         return await AddAsync(_context.Lines, entity, dto, userId, entity.Geometry);
     }
 
     public async Task<FeatureDto> CreatePolygonAsync(FeatureCreateDto dto, int userId)
     {
         var entity = new PolygonFeature { Geometry = WktParser.Parse<Polygon>(dto.Wkt, "POLYGON") };
+        await EnsureInsideAllowedAreaAsync(entity.Geometry, userId);
         return await AddAsync(_context.Polygons, entity, dto, userId, entity.Geometry);
     }
 
@@ -62,6 +85,7 @@ public class FeatureService : IFeatureService
         if (entity is null) return null;
 
         entity.Geometry = WktParser.Parse<Point>(dto.Wkt, "POINT");
+        await EnsureInsideAllowedAreaAsync(entity.Geometry, userId);
         return await ApplyUpdateAsync(entity, dto, entity.Geometry);
     }
 
@@ -71,6 +95,7 @@ public class FeatureService : IFeatureService
         if (entity is null) return null;
 
         entity.Geometry = WktParser.Parse<LineString>(dto.Wkt, "LINESTRING");
+        await EnsureInsideAllowedAreaAsync(entity.Geometry, userId);
         return await ApplyUpdateAsync(entity, dto, entity.Geometry);
     }
 
@@ -80,6 +105,7 @@ public class FeatureService : IFeatureService
         if (entity is null) return null;
 
         entity.Geometry = WktParser.Parse<Polygon>(dto.Wkt, "POLYGON");
+        await EnsureInsideAllowedAreaAsync(entity.Geometry, userId);
         return await ApplyUpdateAsync(entity, dto, entity.Geometry);
     }
 
