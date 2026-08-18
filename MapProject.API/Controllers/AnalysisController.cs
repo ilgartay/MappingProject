@@ -1,3 +1,4 @@
+using MapProject.API.Authorization;
 using MapProject.API.Extensions;
 using MapProject.Business.Dtos;
 using MapProject.Business.Services;
@@ -25,6 +26,7 @@ public class AnalysisController : ApiControllerBase
     /// Veritabanına hiçbir şey yazmıyor.
     /// </summary>
     [HttpPost("intersect")]
+    [RequirePermission("analysis.run")]
     public async Task<IActionResult> Intersect(AnalysisRequestDto request)
     {
         try

@@ -153,3 +153,11 @@
     font-size: 0.72rem;
   }
 }
+
+/* Hiçbir çizim yetkisi olmayan kullanıcı için bilgi etiketi. */
+.draw-toolbar__readonly {
+  padding: 8px 12px;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+}

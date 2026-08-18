@@ -1,3 +1,4 @@
+using MapProject.API.Authorization;
 using MapProject.API.Extensions;
 using MapProject.Business.Dtos;
 using MapProject.Business.Services;
@@ -36,6 +37,7 @@ public class FeatureController : ApiControllerBase
     // --- Oluşturma ---
 
     [HttpPost("point")]
+    [RequirePermission("point.create")]
     public async Task<IActionResult> CreatePoint(FeatureCreateDto dto)
     {
         try
@@ -50,6 +52,7 @@ public class FeatureController : ApiControllerBase
     }
 
     [HttpPost("line")]
+    [RequirePermission("line.create")]
     public async Task<IActionResult> CreateLine(FeatureCreateDto dto)
     {
         try
@@ -64,6 +67,7 @@ public class FeatureController : ApiControllerBase
     }
 
     [HttpPost("polygon")]
+    [RequirePermission("polygon.create")]
     public async Task<IActionResult> CreatePolygon(FeatureCreateDto dto)
     {
         try
@@ -80,6 +84,7 @@ public class FeatureController : ApiControllerBase
     // --- Güncelleme: isim, renk ve geometri ---
 
     [HttpPut("point/{id:int}")]
+    [RequirePermission("feature.update")]
     public async Task<IActionResult> UpdatePoint(int id, FeatureUpdateDto dto)
     {
         try
@@ -94,6 +99,7 @@ public class FeatureController : ApiControllerBase
     }
 
     [HttpPut("line/{id:int}")]
+    [RequirePermission("feature.update")]
     public async Task<IActionResult> UpdateLine(int id, FeatureUpdateDto dto)
     {
         try
@@ -108,6 +114,7 @@ public class FeatureController : ApiControllerBase
     }
 
     [HttpPut("polygon/{id:int}")]
+    [RequirePermission("feature.update")]
     public async Task<IActionResult> UpdatePolygon(int id, FeatureUpdateDto dto)
     {
         try
@@ -124,6 +131,7 @@ public class FeatureController : ApiControllerBase
     // --- Soft delete ---
 
     [HttpDelete("point/{id:int}")]
+    [RequirePermission("feature.delete")]
     public async Task<IActionResult> DeletePoint(int id)
     {
         try
@@ -139,6 +147,7 @@ public class FeatureController : ApiControllerBase
     }
 
     [HttpDelete("line/{id:int}")]
+    [RequirePermission("feature.delete")]
     public async Task<IActionResult> DeleteLine(int id)
     {
         try
@@ -154,6 +163,7 @@ public class FeatureController : ApiControllerBase
     }
 
     [HttpDelete("polygon/{id:int}")]
+    [RequirePermission("feature.delete")]
     public async Task<IActionResult> DeletePolygon(int id)
     {
         try

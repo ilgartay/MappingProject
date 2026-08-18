@@ -21,6 +21,7 @@ import {
   updateFeature,
 } from '../api/features'
 import { analyzeIntersection } from '../api/analysis'
+import { useAuth } from '../auth/useAuth'
 import { geometryToWkt, wktToFeature } from '../map/wkt'
 import { analysisStyle, featureStyle, targetStyle } from '../map/styles'
 import { TURKEY_CENTER, TURKEY_EXTENT } from '../map/turkey'
@@ -50,6 +51,9 @@ function parseFeatureId(feature) {
 }
 
 export default function MapView() {
+  const { hasPermission } = useAuth()
+  const canUpdate = hasPermission('feature.update')
+
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const sourceRef = useRef(null)
@@ -304,13 +308,17 @@ export default function MapView() {
     const map = mapRef.current
     if (!map || !selected) return
 
+    // Güncelleme yetkisi yoksa geometri de sürüklenemesin: kullanıcı
+    // köşeleri oynatıp kaydedemeyince kafası karışırdı.
+    if (!canUpdate) return
+
     // Collection'a sadece seçili feature'ı koyuyoruz: kullanıcı yanlışlıkla
     // komşu bir çizimin köşesini oynatamasın.
     const modify = new Modify({ features: new Collection([selected.feature]) })
     map.addInteraction(modify)
 
     return () => map.removeInteraction(modify)
-  }, [selected])
+  }, [selected, canUpdate])
 
   // --- Çizim modunda imleci artı yap ---
   useEffect(() => {
@@ -448,6 +456,7 @@ export default function MapView() {
         onSelect={setActiveTool}
         counts={counts}
         disabled={pending !== null || isLoading}
+        canDelete={hasPermission('feature.delete')}
       />
 
       {isLoading && (

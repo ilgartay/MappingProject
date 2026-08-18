@@ -1,9 +1,11 @@
+import { useAuth } from '../auth/useAuth'
 import './DrawToolbar.css'
 
 const TOOLS = [
   {
     type: 'Point',
     label: 'Nokta',
+    permission: 'point.create',
     countKey: 'points',
     hint: 'Haritaya tıklayarak nokta ekleyin.',
     icon: (
@@ -16,6 +18,7 @@ const TOOLS = [
   {
     type: 'LineString',
     label: 'Çizgi',
+    permission: 'line.create',
     countKey: 'lines',
     hint: 'Her tıklama bir kırılma noktası ekler, çift tıklayarak bitirin.',
     icon: (
@@ -29,6 +32,7 @@ const TOOLS = [
   {
     type: 'Polygon',
     label: 'Poligon',
+    permission: 'polygon.create',
     countKey: 'polygons',
     hint: 'Köşeleri tıklayın, çift tıklayarak alanı kapatın.',
     icon: (
@@ -44,6 +48,7 @@ const TOOLS = [
 const ANALYSIS_TOOL = {
   type: 'Analysis',
   label: 'Envanter Analizi',
+  permission: 'analysis.run',
   // Dar ekranda tam etiket sığmıyor; ikon tek başına da anlaşılmıyor.
   shortLabel: 'Analiz',
   hint: 'Geçici bir poligon çizin; altında kalan envanterler sayılacak. Bu poligon kaydedilmez.',
@@ -56,7 +61,14 @@ const ANALYSIS_TOOL = {
   ),
 }
 
-export default function DrawToolbar({ activeTool, onSelect, counts, disabled }) {
+export default function DrawToolbar({ activeTool, onSelect, counts, disabled, canDelete }) {
+  const { hasPermission } = useAuth()
+
+  // Yetkisi olmayan araç hiç görünmüyor. Asıl kontrol sunucuda ama
+  // kullanıcıya çalışmayacak bir düğme göstermek de doğru değil.
+  const visibleTools = TOOLS.filter((tool) => hasPermission(tool.permission))
+  const canAnalyze = hasPermission(ANALYSIS_TOOL.permission)
+
   const active =
     [...TOOLS, ANALYSIS_TOOL].find((tool) => tool.type === activeTool) ?? null
   const hasFeatures = counts.points + counts.lines + counts.polygons > 0
@@ -88,11 +100,17 @@ export default function DrawToolbar({ activeTool, onSelect, counts, disabled }) 
   return (
     <div className="draw-toolbar">
       <div className="draw-toolbar__buttons" role="group" aria-label="Harita araçları">
-        {TOOLS.map((tool) => renderButton(tool))}
+        {visibleTools.map((tool) => renderButton(tool))}
 
-        <span className="draw-toolbar__divider" aria-hidden="true" />
+        {visibleTools.length > 0 && canAnalyze && (
+          <span className="draw-toolbar__divider" aria-hidden="true" />
+        )}
 
-        {renderButton(ANALYSIS_TOOL, 'draw-tool--analysis')}
+        {canAnalyze && renderButton(ANALYSIS_TOOL, 'draw-tool--analysis')}
+
+        {visibleTools.length === 0 && !canAnalyze && (
+          <span className="draw-toolbar__readonly">Görüntüleme yetkisi</span>
+        )}
       </div>
 
       {active ? (
@@ -103,7 +121,9 @@ export default function DrawToolbar({ activeTool, onSelect, counts, disabled }) 
         // Silme özelliği tıklamayla çalışıyor; ipucu olmadan kimse bulamaz.
         hasFeatures && (
           <p className="draw-toolbar__hint draw-toolbar__hint--muted">
-            Düzenlemek veya silmek için bir çizime tıklayın.
+            {canDelete
+              ? 'Düzenlemek veya silmek için bir çizime tıklayın.'
+              : 'Detayını görmek için bir çizime tıklayın.'}
           </p>
         )
       )}

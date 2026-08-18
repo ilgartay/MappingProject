@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useAuth } from '../auth/useAuth'
 import { PRESET_COLORS } from '../map/colors'
 import './FeatureDetailPanel.css'
 
@@ -25,6 +26,10 @@ export default function FeatureDetailPanel({
   onCancel,
   onDeleteRequest,
 }) {
+  const { hasPermission } = useAuth()
+  const canUpdate = hasPermission('feature.update')
+  const canDelete = hasPermission('feature.delete')
+
   const [name, setName] = useState(feature.name ?? '')
   const [color, setColor] = useState(feature.color ?? PRESET_COLORS[0])
   const [isSaving, setIsSaving] = useState(false)
@@ -79,6 +84,7 @@ export default function FeatureDetailPanel({
         value={name}
         onChange={(e) => setName(e.target.value)}
         maxLength={100}
+        readOnly={!canUpdate}
       />
 
       <span className="detail-panel__label detail-panel__label--spaced">Renk</span>
@@ -95,6 +101,7 @@ export default function FeatureDetailPanel({
             style={{ background: preset }}
             aria-label={`Renk ${preset}`}
             aria-pressed={preset === color}
+            disabled={!canUpdate}
             onClick={() => setColor(preset)}
           />
         ))}
@@ -103,15 +110,18 @@ export default function FeatureDetailPanel({
             type="color"
             value={color}
             onChange={(e) => setColor(e.target.value)}
+            disabled={!canUpdate}
             aria-label="Özel renk seç"
           />
         </label>
       </div>
 
       {/* Geometri düzenleme harita üzerinde yapılıyor; pencere bunu haber veriyor. */}
-      <p className="detail-panel__hint">
-        <strong>Konum:</strong> {GEOMETRY_HINTS[feature.geometryType]}
-      </p>
+      {canUpdate && (
+        <p className="detail-panel__hint">
+          <strong>Konum:</strong> {GEOMETRY_HINTS[feature.geometryType]}
+        </p>
+      )}
 
       {error && (
         <p className="detail-panel__error" role="alert">
@@ -120,14 +130,18 @@ export default function FeatureDetailPanel({
       )}
 
       <div className="detail-panel__actions">
-        <button
-          type="button"
-          className="detail-panel__delete"
-          onClick={onDeleteRequest}
-          disabled={isSaving}
-        >
-          Sil
-        </button>
+        {canDelete ? (
+          <button
+            type="button"
+            className="detail-panel__delete"
+            onClick={onDeleteRequest}
+            disabled={isSaving}
+          >
+            Sil
+          </button>
+        ) : (
+          <span />
+        )}
 
         <div className="detail-panel__actions-right">
           <button
@@ -136,11 +150,13 @@ export default function FeatureDetailPanel({
             onClick={onCancel}
             disabled={isSaving}
           >
-            Vazgeç
+            {canUpdate ? 'Vazgeç' : 'Kapat'}
           </button>
+          {canUpdate && (
           <button type="submit" className="detail-panel__submit" disabled={isSaving}>
             {isSaving ? 'Kaydediliyor…' : 'Kaydet'}
           </button>
+          )}
         </div>
       </div>
     </form>
