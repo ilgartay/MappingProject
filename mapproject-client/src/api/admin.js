@@ -67,10 +67,14 @@ export async function fetchCurrentUser() {
 
 // --- Coğrafi yetki (çizim alanı) ---
 
-/** @param {'user'|'role'} target */
+/**
+ * Tanımlı alan yoksa sunucu 204 (gövdesiz) dönüyor; axios bunu boş string
+ * yapıyor. Çağıranın "alan yok"u net görmesi için null'a çeviriyoruz.
+ * @param {'user'|'role'} target
+ */
 export async function fetchGeoArea(target, id) {
   const { data } = await client.get(`/api/GeoPermission/${target}/${id}`)
-  return data
+  return data || null
 }
 
 /**
