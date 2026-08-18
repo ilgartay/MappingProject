@@ -264,6 +264,53 @@
   font-size: 0.87rem;
 }
 
+/* --- Liste araması --- */
+
+.admin-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: #fff;
+}
+
+.admin-search:focus-within {
+  border-color: var(--brand);
+}
+
+.admin-search__icon {
+  display: flex;
+  color: var(--text-muted);
+}
+
+.admin-search__input {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  font-size: 0.87rem;
+  color: var(--text);
+}
+
+/* Safari/Chrome'un kendi temizleme çarpısı kutunun çerçevesiyle
+   çakışıyor; kendi görünümümüzü koruyoruz. */
+.admin-search__input::-webkit-search-cancel-button {
+  cursor: pointer;
+}
+
+.admin-search__count {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+
 .admin-error {
   margin: 0 0 16px;
   padding: 10px 13px;

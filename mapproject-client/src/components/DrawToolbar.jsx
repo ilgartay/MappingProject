@@ -1,6 +1,10 @@
 import { useAuth } from '../auth/useAuth'
 import './DrawToolbar.css'
 
+// macOS'ta geri alma kısayolu Cmd, diğer sistemlerde Ctrl. Kod ikisini de
+// kabul ediyor; ipucunda kullanıcının gerçekten bastığı tuşu yazıyoruz.
+const UNDO_KEY = navigator.userAgent.includes('Mac') ? '⌘' : 'Ctrl'
+
 const TOOLS = [
   {
     type: 'Point',
@@ -21,6 +25,8 @@ const TOOLS = [
     permission: 'line.create',
     countKey: 'lines',
     hint: 'Her tıklama bir kırılma noktası ekler, çift tıklayarak bitirin.',
+    // Birden fazla noktadan oluşuyor, yani geri alınacak bir "son nokta" var.
+    canUndo: true,
     icon: (
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M4 18 L10 8 L16 14 L20 6" />
@@ -35,6 +41,7 @@ const TOOLS = [
     permission: 'polygon.create',
     countKey: 'polygons',
     hint: 'Köşeleri tıklayın, çift tıklayarak alanı kapatın.',
+    canUndo: true,
     icon: (
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M12 3 L21 10 L17 20 L7 20 L3 10 Z" />
@@ -52,6 +59,7 @@ const ANALYSIS_TOOL = {
   // Dar ekranda tam etiket sığmıyor; ikon tek başına da anlaşılmıyor.
   shortLabel: 'Analiz',
   hint: 'Geçici bir poligon çizin; altında kalan envanterler sayılacak. Bu poligon kaydedilmez.',
+  canUndo: true,
   icon: (
     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M11 3 L19 8 L16 18 L6 18 L3 8 Z" strokeDasharray="3 2" />
@@ -115,7 +123,17 @@ export default function DrawToolbar({ activeTool, onSelect, counts, disabled, ca
 
       {active ? (
         <p className="draw-toolbar__hint">
-          {active.hint} İptal için <kbd>Esc</kbd>.
+          {active.hint}{' '}
+          {active.canUndo ? (
+            <>
+              Son noktayı geri almak için <kbd>{UNDO_KEY}</kbd>+<kbd>Z</kbd>, iptal için{' '}
+              <kbd>Esc</kbd>.
+            </>
+          ) : (
+            <>
+              İptal için <kbd>Esc</kbd>.
+            </>
+          )}
         </p>
       ) : (
         // Silme özelliği tıklamayla çalışıyor; ipucu olmadan kimse bulamaz.

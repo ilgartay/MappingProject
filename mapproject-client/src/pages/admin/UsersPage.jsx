@@ -9,6 +9,8 @@ import {
   updateUser,
 } from '../../api/admin'
 import { useAuth } from '../../auth/useAuth'
+import AdminSearch from './AdminSearch'
+import { matchesQuery } from './adminFilter'
 import GeoAreaDialog from './GeoAreaDialog'
 
 const EMPTY_FORM = { username: '', password: '', isActive: true, roleIds: [] }
@@ -18,6 +20,7 @@ export default function UsersPage() {
   const canManageGeo = hasPermission('geo.manage')
 
   const [geoTarget, setGeoTarget] = useState(null) // {type, id, label}
+  const [query, setQuery] = useState('')
   const [users, setUsers] = useState([])
   const [roles, setRoles] = useState([])
   const [isLoading, setIsLoading] = useState(true)
@@ -180,6 +183,12 @@ export default function UsersPage() {
     }
   }
 
+  // Kullanıcı adının yanında rol adları da taranıyor: "Operatör" yazan
+  // o rolü taşıyan herkesi görsün.
+  const visibleUsers = users.filter((user) =>
+    matchesQuery(query, user.username, ...user.roleNames),
+  )
+
   return (
     <>
       <header className="admin-page__header">
@@ -194,8 +203,22 @@ export default function UsersPage() {
 
       {error && <p className="admin-error">{error}</p>}
 
+      {!isLoading && (
+        <AdminSearch
+          value={query}
+          onChange={setQuery}
+          label="Kullanıcı adı veya rol ara"
+          shown={visibleUsers.length}
+          total={users.length}
+        />
+      )}
+
       {isLoading ? (
         <p className="admin-empty">Yükleniyor…</p>
+      ) : visibleUsers.length === 0 ? (
+        <p className="admin-empty">
+          {query ? 'Aramaya uyan kullanıcı yok.' : 'Henüz kullanıcı yok.'}
+        </p>
       ) : (
         <table className="admin-table">
           <thead>
@@ -207,7 +230,7 @@ export default function UsersPage() {
             </tr>
           </thead>
           <tbody>
-            {users.map((user) => (
+            {visibleUsers.map((user) => (
               <tr key={user.id}>
                 <td>
                   <strong>{user.username}</strong>

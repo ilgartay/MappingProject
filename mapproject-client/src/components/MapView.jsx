@@ -283,9 +283,23 @@ export default function MapView() {
     }
   }, [activeTool])
 
-  // --- Esc: devam eden çizimi ya da açık pencereyi iptal et ---
+  // --- Klavye kısayolları ---
   useEffect(() => {
     function onKeyDown(event) {
+      // Ctrl/Cmd+Z: devam eden çizimin son kırılma noktasını siler.
+      // Öncesinde tek çare Esc ile çizimi baştan başlatmaktı.
+      if ((event.ctrlKey || event.metaKey) && event.key?.toLowerCase() === 'z') {
+        // Çizim yoksa karışmıyoruz: kullanıcı bir metin kutusundaysa
+        // tarayıcının kendi geri alması çalışmaya devam etsin.
+        if (!drawRef.current) return
+
+        // Draw henüz başlamadıysa removeLastPoint zaten sessizce dönüyor.
+        event.preventDefault()
+        drawRef.current.removeLastPoint()
+        return
+      }
+
+      // Esc: devam eden çizimi ya da açık pencereyi iptal et.
       if (event.key !== 'Escape') return
 
       if (drawRef.current) {

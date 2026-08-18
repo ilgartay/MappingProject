@@ -5,11 +5,26 @@ import TileLayer from 'ol/layer/Tile'
 import VectorLayer from 'ol/layer/Vector'
 import VectorSource from 'ol/source/Vector'
 import OSM from 'ol/source/OSM'
+import { defaults as defaultControls } from 'ol/control/defaults'
+import MousePosition from 'ol/control/MousePosition'
+import ScaleLine from 'ol/control/ScaleLine'
 import { fromLonLat, transformExtent } from 'ol/proj'
 import 'ol/ol.css'
 
 import { allowedAreaStyle, analysisStyle, featureStyle, targetStyle } from './styles'
 import { TURKEY_CENTER, TURKEY_EXTENT } from './turkey'
+
+/**
+ * Fare konumunu "39.93312, 32.85997" olarak yazar.
+ * Sıra enlem, boylam: koordinat arama kutusu da bu sırayı istiyor,
+ * kullanıcı gördüğü değeri doğrudan oraya yapıştırabilsin.
+ */
+function formatLatLon(coordinate) {
+  if (!coordinate) return ''
+
+  const [longitude, latitude] = coordinate
+  return `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`
+}
 
 /**
  * OpenLayers haritasını bir kez kurar ve katman kaynaklarını döner.
@@ -70,6 +85,19 @@ export function useMapInstance(containerRef) {
         zoom: 6,
         minZoom: 3,
       }),
+      // Varsayılan kontrollerin (zoom, kaynak gösterimi) üstüne ölçek
+      // çubuğu ve fare konumu ekleniyor: harita hangi ölçekte, imleç
+      // nereye denk geliyor - ikisi de artık okunabiliyor.
+      controls: defaultControls().extend([
+        new ScaleLine(),
+        new MousePosition({
+          // Harita 3857 ama kullanıcıya derece gösteriyoruz: veritabanında
+          // da, arama kutusunda da 4326 kullanılıyor.
+          projection: 'EPSG:4326',
+          coordinateFormat: formatLatLon,
+          placeholder: '-',
+        }),
+      ]),
     })
 
     mapRef.current = map

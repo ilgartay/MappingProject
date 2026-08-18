@@ -72,3 +72,46 @@
 .map-view .ol-attribution {
   font-size: 0.7rem;
 }
+
+/* --- Ölçek çubuğu ve fare konumu ---
+   Ikisi de OpenLayers'ın varsayılan yerinde başka kontrollerin üstüne
+   biniyordu: ölçek zoom düğmelerinin, fare konumu ise sağ üstteki
+   analiz/detay panelinin altında kalıyordu. Alt şeride taşıyoruz. */
+
+.map-view .ol-scale-line {
+  left: 12px;
+  bottom: 58px;
+  background: rgba(255, 255, 255, 0.82);
+  padding: 2px;
+  border-radius: 6px;
+}
+
+.map-view .ol-scale-line-inner {
+  color: var(--text);
+  border-color: var(--text);
+  font-size: 0.7rem;
+}
+
+.map-view .ol-mouse-position {
+  top: auto;
+  right: 12px;
+  bottom: 22px;
+  margin: 0;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--text);
+  font-size: 0.72rem;
+  /* Rakamlar eşit genişlikte olsun ki fare gezerken kutu titremesin. */
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+/* Dar ekranda ikisi de gizleniyor: analiz paneli alt şeride iniyor ve
+   dokunmatik cihazda "fare konumu" zaten anlamsız. */
+@media (max-width: 560px) {
+  .map-view .ol-scale-line,
+  .map-view .ol-mouse-position {
+    display: none;
+  }
+}

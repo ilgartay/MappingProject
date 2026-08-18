@@ -7,6 +7,8 @@ import {
   updateRole,
 } from '../../api/admin'
 import { useAuth } from '../../auth/useAuth'
+import AdminSearch from './AdminSearch'
+import { matchesQuery } from './adminFilter'
 import GeoAreaDialog from './GeoAreaDialog'
 
 const EMPTY_FORM = { name: '', description: '', isActive: true, permissionIds: [] }
@@ -16,6 +18,7 @@ export default function RolesPage() {
   const canManageGeo = hasPermission('geo.manage')
 
   const [geoTarget, setGeoTarget] = useState(null) // {type, id, label}
+  const [query, setQuery] = useState('')
   const [roles, setRoles] = useState([])
   const [permissions, setPermissions] = useState([])
   const [isLoading, setIsLoading] = useState(true)
@@ -137,6 +140,10 @@ export default function RolesPage() {
     }
   }
 
+  // Açıklama da taranıyor: rol adı akılda kalmasa bile ne işe yaradığı
+  // yazılarak bulunabilsin.
+  const visibleRoles = roles.filter((role) => matchesQuery(query, role.name, role.description))
+
   return (
     <>
       <header className="admin-page__header">
@@ -151,10 +158,20 @@ export default function RolesPage() {
 
       {error && <p className="admin-error">{error}</p>}
 
+      {!isLoading && roles.length > 0 && (
+        <AdminSearch
+          value={query}
+          onChange={setQuery}
+          label="Rol adı veya açıklama ara"
+          shown={visibleRoles.length}
+          total={roles.length}
+        />
+      )}
+
       {isLoading ? (
         <p className="admin-empty">Yükleniyor…</p>
-      ) : roles.length === 0 ? (
-        <p className="admin-empty">Henüz rol yok.</p>
+      ) : visibleRoles.length === 0 ? (
+        <p className="admin-empty">{query ? 'Aramaya uyan rol yok.' : 'Henüz rol yok.'}</p>
       ) : (
         <table className="admin-table">
           <thead>
@@ -167,7 +184,7 @@ export default function RolesPage() {
             </tr>
           </thead>
           <tbody>
-            {roles.map((role) => (
+            {visibleRoles.map((role) => (
               <tr key={role.id}>
                 <td>
                   <strong>{role.name}</strong>
