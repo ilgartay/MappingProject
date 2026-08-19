@@ -1,8 +1,11 @@
 using MapProject.Business.Dtos;
 using MapProject.Business.Geo;
+using MapProject.Business.GeoServer;
+using MapProject.Business.Settings;
 using MapProject.Data;
 using MapProject.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using NetTopologySuite.Geometries;
 
 namespace MapProject.Business.Services;
@@ -11,11 +14,19 @@ public class FeatureService : IFeatureService
 {
     private readonly AppDbContext _context;
     private readonly IGeoPermissionService _geoPermissionService;
+    private readonly IGeoServerFeatureReader _geoServer;
+    private readonly GeoServerSettings _geoServerSettings;
 
-    public FeatureService(AppDbContext context, IGeoPermissionService geoPermissionService)
+    public FeatureService(
+        AppDbContext context,
+        IGeoPermissionService geoPermissionService,
+        IGeoServerFeatureReader geoServer,
+        IOptions<GeoServerSettings> geoServerSettings)
     {
         _context = context;
         _geoPermissionService = geoPermissionService;
+        _geoServer = geoServer;
+        _geoServerSettings = geoServerSettings.Value;
     }
 
     /// <summary>
@@ -36,21 +47,32 @@ public class FeatureService : IFeatureService
         }
     }
 
+    /// <summary>
+    /// Haritayı dolduran okuma. Veriyi artık veritabanından değil
+    /// GeoServer'ın WFS servisinden alıyoruz (ödev gereği): istek
+    /// React -> bu API -> GeoServer -> PostGIS yolunu izliyor.
+    ///
+    /// Yazma işlemleri (create/update/delete) EF üzerinden devam ediyor.
+    /// Sebebi: kaydetmeden önce coğrafi alan kontrolü, izleme kolonlarının
+    /// damgalanması ve soft delete gibi iş kuralları çalışıyor - bunlar
+    /// GeoServer'ın değil bizim sorumluluğumuz.
+    ///
+    /// Üç katman birbirinden bağımsız olduğu için istekleri paralel atıyoruz;
+    /// sırayla gitseydi ağ gecikmesi üç katına çıkardı.
+    /// </summary>
     public async Task<FeatureCollectionDto> GetAllAsync(int userId)
     {
-        // Silinmiş kayıtları global sorgu filtresi zaten eliyor;
-        // burada sadece sahiplik filtresi var.
-        // Geometriyi WKT'ye çevirmek .NET tarafında olmalı, bu yüzden önce
-        // satırları çekip sonra map'liyoruz.
-        var points = await OwnedQuery(_context.Points, userId).ToListAsync();
-        var lines = await OwnedQuery(_context.Lines, userId).ToListAsync();
-        var polygons = await OwnedQuery(_context.Polygons, userId).ToListAsync();
+        var points = _geoServer.GetOwnedFeaturesAsync(_geoServerSettings.PointLayer, userId);
+        var lines = _geoServer.GetOwnedFeaturesAsync(_geoServerSettings.LineLayer, userId);
+        var polygons = _geoServer.GetOwnedFeaturesAsync(_geoServerSettings.PolygonLayer, userId);
+
+        await Task.WhenAll(points, lines, polygons);
 
         return new FeatureCollectionDto
         {
-            Points = points.Select(p => ToDto(p, p.Geometry)).ToList(),
-            Lines = lines.Select(l => ToDto(l, l.Geometry)).ToList(),
-            Polygons = polygons.Select(p => ToDto(p, p.Geometry)).ToList()
+            Points = await points,
+            Lines = await lines,
+            Polygons = await polygons
         };
     }
 
@@ -118,14 +140,6 @@ public class FeatureService : IFeatureService
     public Task<bool> DeletePolygonAsync(int id, int userId) => SoftDeleteAsync(_context.Polygons, id, userId);
 
     // --- Ortak yardımcılar ---
-
-    private static IQueryable<TEntity> OwnedQuery<TEntity>(DbSet<TEntity> set, int userId)
-        where TEntity : class, ITrackable
-    {
-        return set.AsNoTracking()
-            .Where(e => e.InsertedUserId == userId)
-            .OrderBy(e => e.Id);
-    }
 
     /// <summary>
     /// Kaydı sahiplik kontrolüyle bulur. Başkasının kaydında da null dönmesi

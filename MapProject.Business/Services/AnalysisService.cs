@@ -1,56 +1,59 @@
 using MapProject.Business.Dtos;
 using MapProject.Business.Geo;
-using MapProject.Data;
-using Microsoft.EntityFrameworkCore;
+using MapProject.Business.GeoServer;
+using MapProject.Business.Settings;
+using Microsoft.Extensions.Options;
 using NetTopologySuite.Geometries;
 
 namespace MapProject.Business.Services;
 
 public class AnalysisService : IAnalysisService
 {
-    private readonly AppDbContext _context;
+    private readonly IGeoServerFeatureReader _geoServer;
+    private readonly GeoServerSettings _settings;
 
-    public AnalysisService(AppDbContext context)
+    public AnalysisService(IGeoServerFeatureReader geoServer, IOptions<GeoServerSettings> settings)
     {
-        _context = context;
+        _geoServer = geoServer;
+        _settings = settings.Value;
     }
 
+    /// <summary>
+    /// Çizilen poligonla kesişen envanteri sayar.
+    ///
+    /// Kesişim testi eskiden EF üzerinden PostGIS'in ST_Intersects'ine
+    /// çevriliyordu; artık aynı işi GeoServer'a CQL uzamsal filtresiyle
+    /// yaptırıyoruz. Sonuçta sorgu yine PostGIS'te çalışıyor - arada
+    /// GeoServer var, tüm envanter belleğe çekilmiyor.
+    ///
+    /// INTERSECTS "tamamen içinde" değil "değiyor" demek: ödevde istendiği
+    /// gibi kısmi kesişim de sayılıyor.
+    /// </summary>
     public async Task<AnalysisResultDto> IntersectAsync(AnalysisRequestDto request, int userId)
     {
+        // Metni önce doğrulanmış bir geometriye çevirip sonra AsText() ile
+        // yeniden yazıyoruz. Bu bilinçli: istemciden gelen ham metin doğrudan
+        // CQL'e gömülseydi filtreye istediğini yazabilirdi. Parse'tan geçen
+        // metin artık bizim ürettiğimiz, sadece geometri içeren bir metin.
         var area = WktParser.Parse<Polygon>(request.Wkt, "POLYGON");
+        var intersects = $"INTERSECTS({IGeoServerFeatureReader.GeometryColumn}, {area.AsText()})";
 
-        // EF Core'un Npgsql sağlayıcısı Intersects çağrısını PostGIS'in
-        // ST_Intersects fonksiyonuna çeviriyor; yani filtreleme veritabanında
-        // yapılıyor, tüm envanteri belleğe çekmiyoruz.
-        //
-        // Intersects "tamamen içinde" demek değil, "değiyor" demek: ödevde
-        // istendiği gibi ufak bir kesişim de sayılıyor. Tamamen kapsananları
-        // istesek Contains/Within kullanmamız gerekirdi.
-        var points = await _context.Points
-            .AsNoTracking()
-            .Where(p => p.InsertedUserId == userId && area.Intersects(p.Geometry))
-            .OrderBy(p => p.Id)
-            .Select(p => new AnalysisItemDto { Type = "point", Id = p.Id, Name = p.Name })
-            .ToListAsync();
+        // Kayıtlı bir poligonun analizinde poligonun kendisi hariç tutulur;
+        // yoksa kendisiyle kesişip sonucu bir fazla gösterirdi.
+        var polygonFilter = request.ExcludePolygonId is { } excludeId
+            ? $"{intersects} AND id <> {excludeId}"
+            : intersects;
 
-        var lines = await _context.Lines
-            .AsNoTracking()
-            .Where(l => l.InsertedUserId == userId && area.Intersects(l.Geometry))
-            .OrderBy(l => l.Id)
-            .Select(l => new AnalysisItemDto { Type = "line", Id = l.Id, Name = l.Name })
-            .ToListAsync();
+        // Üç katman birbirinden bağımsız; paralel soruyoruz.
+        var pointTask = _geoServer.GetOwnedFeaturesAsync(_settings.PointLayer, userId, intersects);
+        var lineTask = _geoServer.GetOwnedFeaturesAsync(_settings.LineLayer, userId, intersects);
+        var polygonTask = _geoServer.GetOwnedFeaturesAsync(_settings.PolygonLayer, userId, polygonFilter);
 
-        // Kayıtlı bir poligonun analizinde poligonun kendisi hariç tutulur.
-        // Sorguya çevrilebilmesi için değeri önce yerel değişkene alıyoruz.
-        var excludeId = request.ExcludePolygonId;
+        await Task.WhenAll(pointTask, lineTask, polygonTask);
 
-        var polygons = await _context.Polygons
-            .AsNoTracking()
-            .Where(p => p.InsertedUserId == userId && area.Intersects(p.Geometry)
-                        && (excludeId == null || p.Id != excludeId))
-            .OrderBy(p => p.Id)
-            .Select(p => new AnalysisItemDto { Type = "polygon", Id = p.Id, Name = p.Name })
-            .ToListAsync();
+        var points = ToItems(await pointTask, "point");
+        var lines = ToItems(await lineTask, "line");
+        var polygons = ToItems(await polygonTask, "polygon");
 
         return new AnalysisResultDto
         {
@@ -61,4 +64,9 @@ public class AnalysisService : IAnalysisService
             Items = [.. points, .. lines, .. polygons]
         };
     }
+
+    private static List<AnalysisItemDto> ToItems(IReadOnlyList<FeatureDto> features, string type) =>
+        features
+            .Select(f => new AnalysisItemDto { Type = type, Id = f.Id, Name = f.Name })
+            .ToList();
 }

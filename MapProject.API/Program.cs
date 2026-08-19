@@ -50,6 +50,11 @@ builder.Services.AddDataServices(
 builder.Services.Configure<JwtSettings>(
     builder.Configuration.GetSection(JwtSettings.SectionName));
 
+// Aynı şekilde "GeoServer" bölümü. Şifre burada değil; user-secrets ya da
+// GeoServer__Password ortam değişkeninden geliyor.
+builder.Services.Configure<GeoServerSettings>(
+    builder.Configuration.GetSection(GeoServerSettings.SectionName));
+
 builder.Services.AddBusinessServices();
 
 var jwtSettings = builder.Configuration

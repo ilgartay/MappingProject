@@ -26,6 +26,16 @@ public abstract class ApiControllerBase : ControllerBase
             case InvalidUserOperationException:
                 return BadRequest(new { message = exception.Message });
 
+            // Dış servis hatası: bizim kodumuz sağlam, GeoServer cevap vermiyor.
+            // 503 "şu an kullanılamıyor" demek; 500 gibi kalıcı bir arıza
+            // izlenimi vermediği için istemci tekrar denemeyi seçebilir.
+            case GeoServerException:
+                _logger.LogError(exception, "GeoServer hatası: {Path}", HttpContext.Request.Path);
+
+                return StatusCode(
+                    StatusCodes.Status503ServiceUnavailable,
+                    new { message = "Harita servisine (GeoServer) şu an ulaşılamıyor." });
+
             default:
                 // Beklenmeyen hata. Mesajı istemciye vermiyoruz - iç detay
                 // (bağlantı dizesi, dosya yolu, SQL) sızdırabilir. Sunucuya loglayıp
