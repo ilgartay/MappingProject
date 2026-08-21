@@ -25,8 +25,16 @@ public class GeoServerSettings
     /// <summary>Şifre appsettings.json'a yazılmıyor; user-secrets ya da ortam değişkeni.</summary>
     public string Password { get; set; } = string.Empty;
 
-    // GeoServer'daki katman adları = PostGIS tablo adları.
-    public string PointLayer { get; set; } = "tbl_point";
-    public string LineLayer { get; set; } = "tbl_line";
-    public string PolygonLayer { get; set; } = "tbl_polygon";
+    // Katmanlar tabloların kendisi değil, GeoServer'daki SQL View'lar.
+    // View "WHERE is_deleted = false" içerdiği için silinmiş kayıtlar
+    // GeoServer'dan hiç çıkmıyor; is_deleted kolonu da dışarı verilmiyor.
+    public string PointLayer { get; set; } = "vw_point";
+    public string LineLayer { get; set; } = "vw_line";
+    public string PolygonLayer { get; set; } = "vw_polygon";
+
+    /// <summary>
+    /// Isı haritası SLD'sinin adı. Yoğunluk hesabı bu stilin içindeki
+    /// Heatmap dönüşümünde yapılıyor, kodumuzda değil.
+    /// </summary>
+    public string HeatmapStyle { get; set; } = "mapproject_heatmap";
 }

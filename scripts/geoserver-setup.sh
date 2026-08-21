@@ -62,11 +62,74 @@ post "workspaces/$WORKSPACE/datastores" \
   ]}}}" \
   "$STORE -> $PG_DB@$PG_HOST:$PG_PORT"
 
-echo "katmanlar..."
-for table in tbl_point tbl_line tbl_polygon; do
+# Katmanlari tablodan degil SQL View'dan uretiyoruz. Kazanci: silinmis
+# kayit filtresi tek yerde, view'in icinde duruyor. WMS ve WFS ayni view'i
+# okudugu icin ikisinde ayri ayri filtre yazmak gerekmiyor; GeoServer
+# arayuzunden bakan biri de kuralin nerede oldugunu goruyor.
+echo "katmanlar (SQL View)..."
+make_view() {
+  table=$1; view=$2; gtype=$3
+  sql="SELECT id, name, geom, color, inserted_user_id, inserted_date, modified_date, is_active FROM $table WHERE is_deleted = false"
+
   post "workspaces/$WORKSPACE/datastores/$STORE/featuretypes" \
-    "{\"featureType\":{\"name\":\"$table\",\"srs\":\"EPSG:4326\",\"enabled\":true}}" \
-    "$table"
+    "{\"featureType\":{
+       \"name\":\"$view\",
+       \"nativeName\":\"$view\",
+       \"title\":\"$view (SQL View)\",
+       \"srs\":\"EPSG:4326\",
+       \"enabled\":true,
+       \"metadata\":{\"entry\":[{
+         \"@key\":\"JDBC_VIRTUAL_TABLE\",
+         \"virtualTable\":{
+           \"name\":\"$view\",
+           \"sql\":\"$sql\",
+           \"escapeSql\":false,
+           \"keyColumn\":\"id\",
+           \"geometry\":{\"name\":\"geom\",\"type\":\"$gtype\",\"srid\":4326}
+         }
+       }]}
+     }}" \
+    "$view -> $table"
+}
+
+make_view tbl_point   vw_point   Point
+make_view tbl_line    vw_line    LineString
+make_view tbl_polygon vw_polygon Polygon
+
+# SLD stilleri: WMS gosteriminin rengi/etiketi ve isi haritasi burada.
+# Repoda geoserver/styles altinda duruyorlar, yani surum kontrolunde.
+echo "stiller..."
+SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
+
+for file in "$SCRIPT_DIR/../geoserver/styles"/*.sld; do
+  [ -e "$file" ] || continue
+  style=$(basename "$file" .sld)
+
+  code=$(curl -s $AUTH -XPOST -H "Content-Type: application/vnd.ogc.sld+xml" \
+    --data-binary "@$file" -o /dev/null -w "%{http_code}" \
+    "$REST/workspaces/$WORKSPACE/styles?name=$style")
+
+  # Var olan bir stil adi icin GeoServer 403 donuyor (yetki hatasi degil;
+  # hemen asagidaki PUT'lar ayni kimlikle 200 aliyor).
+  case "$code" in
+    201)         echo "  olusturuldu: $style" ;;
+    403|409|500) echo "  zaten var: $style" ;;
+    *)           echo "  beklenmeyen cevap $code: $style" ;;
+  esac
 done
 
-echo "bitti. Kontrol: $GS_URL/$WORKSPACE/wfs?service=WFS&version=2.0.0&request=GetCapabilities"
+# Her katman kendi stilini varsayilan olarak kullansin; boylece WMS
+# istegine STYLES yazmadan da dogru gorunum geliyor.
+echo "varsayilan stiller..."
+set_style() {
+  code=$(curl -s $AUTH -XPUT -H "Content-Type: application/json" -o /dev/null -w "%{http_code}" \
+    -d "{\"layer\":{\"defaultStyle\":{\"name\":\"$2\",\"workspace\":\"$WORKSPACE\"}}}" \
+    "$REST/layers/$WORKSPACE:$1")
+  echo "  $1 -> $2 ($code)"
+}
+
+set_style vw_point   mapproject_point
+set_style vw_line    mapproject_line
+set_style vw_polygon mapproject_polygon
+
+echo "bitti. Kontrol: $GS_URL/$WORKSPACE/wfs?service=WFS&version=1.0.0&request=GetCapabilities"

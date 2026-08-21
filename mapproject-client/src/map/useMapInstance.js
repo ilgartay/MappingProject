@@ -12,6 +12,7 @@ import { fromLonLat, transformExtent } from 'ol/proj'
 import 'ol/ol.css'
 
 import { allowedAreaStyle, analysisStyle, featureStyle, targetStyle } from './styles'
+import { createFeatureWmsLayer, createHeatmapLayer } from './wmsLayers'
 import { TURKEY_CENTER, TURKEY_EXTENT } from './turkey'
 
 /**
@@ -50,6 +51,12 @@ export function useMapInstance(containerRef) {
   /** Kullanıcıya tanımlı çizim alanının sınırı. */
   const areaSourceRef = useRef(null)
 
+  /** Çizimlerin genel gösterimi: GeoServer'ın WMS ile çizdiği resim. */
+  const featureWmsRef = useRef(null)
+
+  /** Isı haritası; "Isı Haritası Analizi" açılana kadar gizli. */
+  const heatmapRef = useRef(null)
+
   useEffect(() => {
     const source = new VectorSource()
     sourceRef.current = source
@@ -67,14 +74,28 @@ export function useMapInstance(containerRef) {
     const areaSource = new VectorSource()
     areaSourceRef.current = areaSource
 
+    // Vektör katmanı artık görünmüyor: çizimleri WMS gösteriyor. Bu katman
+    // yalnızca etkileşim için duruyor - tıklama isabeti, düzenleme ve
+    // yeni çizim. Seçili kayıt görünür stille çiziliyor (styles.js).
     const featureLayer = new VectorLayer({ source, style: featureStyle })
     featureLayerRef.current = featureLayer
+
+    const featureWms = createFeatureWmsLayer()
+    featureWmsRef.current = featureWms
+
+    const heatmap = createHeatmapLayer()
+    heatmapRef.current = heatmap
 
     const map = new Map({
       target: containerRef.current,
       layers: [
         new TileLayer({ source: new OSM() }),
-        // Çizimler altlık haritanın üstündeki bu vektör katmanında yaşıyor.
+        // Isı haritası altta: üstündeki nokta işaretleri görünmeye devam
+        // etsin, kullanıcı hangi noktaların yoğunluğu oluşturduğunu görsün.
+        heatmap,
+        // Genel gösterim - sunucuda çizilmiş resim.
+        featureWms,
+        // Etkileşim katmanı: görünmez, ama tıklanabilir ve düzenlenebilir.
         featureLayer,
         new VectorLayer({ source: areaSource, style: allowedAreaStyle }),
         new VectorLayer({ source: analysisSource, style: analysisStyle }),
@@ -119,5 +140,14 @@ export function useMapInstance(containerRef) {
     return () => map.setTarget(undefined)
   }, [containerRef])
 
-  return { mapRef, sourceRef, featureLayerRef, targetSourceRef, analysisSourceRef, areaSourceRef }
+  return {
+    mapRef,
+    sourceRef,
+    featureLayerRef,
+    targetSourceRef,
+    analysisSourceRef,
+    areaSourceRef,
+    featureWmsRef,
+    heatmapRef,
+  }
 }

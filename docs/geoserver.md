@@ -8,7 +8,7 @@ GeoServer'ın yapısı iç içe dört kutu gibi düşünülebilir:
 |---|---|---|
 | **Workspace** | Katmanları gruplayan isim alanı. Aynı addaki iki tabloyu ayrı projelerde tutabilmeyi sağlar. | `mapproject` |
 | **Store** | Verinin fiziksel kaynağı: bir veritabanı bağlantısı ya da dosya. | `mapdb` (PostGIS bağlantısı) |
-| **Layer** | Store içindeki tek bir tablonun yayınlanmış hali. | `tbl_point`, `tbl_line`, `tbl_polygon` |
+| **Layer** | Store içindeki bir tablonun ya da SQL View'ın yayınlanmış hali. | `vw_point`, `vw_line`, `vw_polygon` |
 | **Layer Group** | Birden çok katmanı tek isimle sunma. | Kullanmıyoruz |
 
 Servisler ise aynı katmanı iki farklı biçimde dışarı verir:
@@ -20,9 +20,49 @@ Servisler ise aynı katmanı iki farklı biçimde dışarı verir:
   Her kaydın geometrisi ve öznitelikleri gelir; istemci kendi stilini uygular,
   üstüne tıklayabilir, düzenleyebilir.
 
-Bu projede **WFS** kullanıyoruz: çizimlerin rengi kullanıcıya ait bir öznitelik
-ve kullanıcı çizime tıklayıp düzenleyebiliyor. WMS resim döndüğü için ikisi de
-mümkün olmazdı.
+Bu projede **ikisini de** kullanıyoruz, ama farklı işler için:
+
+- **Genel gösterim → WMS.** Haritada gördüğün noktalar/çizgiler/poligonlar
+  GeoServer'ın çizdiği bir PNG. Renkleri ve etiketleri sunucudaki SLD
+  belirliyor, tarayıcı sadece resmi basıyor.
+- **Çizim ve etkileşim → WFS.** Bir çizime tıklayıp adını, rengini veya
+  konumunu değiştirdiğinde kullanılan veri WFS'ten geliyor. Resmin üstündeki
+  bir şekli sürükleyip düzenlemek mümkün olmazdı.
+
+Uygulamada bu ikisi üst üste duruyor: WMS katmanı görünen kısım, vektör
+katmanı ise **tamamen saydam** ama tıklanabilir halde onun üstünde. Kullanıcı
+bir kayda tıkladığında o kayıt görünür hale gelip düzenlenebiliyor.
+
+## SQL View
+
+Katmanlar tabloların doğrudan kendisi değil; her biri bir **SQL View**:
+
+```sql
+SELECT id, name, geom, color, inserted_user_id, inserted_date, modified_date, is_active
+FROM tbl_point
+WHERE is_deleted = false
+```
+
+Kazancı: silinmiş kayıt filtresi tek bir yerde duruyor. WMS de WFS de aynı
+view'ı okuduğu için ikisinde ayrı ayrı filtre yazmak gerekmiyor, biri
+unutulduğunda silinen çizimlerin geri gelmesi diye bir ihtimal kalmıyor.
+View `is_deleted` kolonunu dışarı hiç vermiyor - GeoServer arayüzünden
+bakan biri de kuralın nerede olduğunu görüyor.
+
+Kullanıcı bazlı filtre ise view'a gömülemez, çünkü isteğe göre değişiyor.
+Onu her istekte CQL olarak gönderiyoruz: `cql_filter=inserted_user_id = 2`.
+
+## Isı haritası
+
+"Isı Haritası Analizi" düğmesi, nokta katmanını `mapproject_heatmap`
+stiliyle isteyen bir WMS katmanı açıyor. Yoğunluk hesabı istemcide değil,
+SLD'nin içindeki `<Transformation>` blokunda - GeoServer noktaları çizmeden
+önce bir yoğunluk rasterine çeviriyor, `RasterSymbolizer` da onu renklendiriyor.
+
+Yoğunluk her zaman 0-1 arasına ölçekleniyor: 1, o görünümdeki en yoğun bölge
+demek, mutlak bir nokta sayısı değil. Ekranın sağ altındaki lejant bu
+basamakları gösteriyor; renkleri `mapproject_heatmap.sld` ile aynı tutmak
+için `src/map/heatmapScale.js` içinde tekrarlanıyor.
 
 ## Mimari
 
@@ -42,6 +82,22 @@ iş kuralları çalışıyor.
 - `MapProject.Business/GeoServer/GeoServerFeatureReader.cs` — WFS isteği ve GeoJSON→DTO çevirisi
 - `MapProject.Business/Settings/GeoServerSettings.cs` — adres, workspace, katman adları
 - `MapProject.Business/Services/FeatureService.cs` — `GetAllAsync` artık okuyucuyu kullanıyor
+
+## Tarayıcı GeoServer'a doğrudan gitmiyor
+
+WMS görüntüleri de `/api/Map/features` ve `/api/Map/heatmap` uçlarından
+geçiyor. Sebebi güvenlik: GeoServer katmanları kimlik sormuyor, dolayısıyla
+istemci adresi kendisi kursa `cql_filter`'ı değiştirip başkasının
+çizimlerini isteyebilirdi. Filtreyi token'daki kullanıcıya göre sunucu
+koyuyor; istemci katman adı bile gönderemiyor.
+
+Ölçülen sonuç - üçü de aynı uca, aynı görünüm için istek attı:
+
+| Kullanıcı | Kayıt sayısı | Resimdeki dolu piksel |
+|---|---|---|
+| demo | 7 | 3076 |
+| admin | 2 | 1683 |
+| viewer | 0 | **0** |
 
 ## Dikkat edilecek üç nokta
 
@@ -78,6 +134,24 @@ version=2.0.0 + INTERSECTS(geom, POINT(39.93 32.86))  ->  1 kayit  (ters yazim)
 uzamsal filtrelerde ortaya çıkıyordu — analiz aracı sessizce hep 0 döndürüyordu.
 
 Sürüm 1.0.0'da parametrenin adı da `typeName` (tekil); 2.0.0'da `typeNames`.
+
+WMS tarafında da aynı gerekçeyle **1.1.1** kullanıyoruz: 1.3.0'da EPSG:4326
+enlem/boylam sayılıyor ve parametrenin adı `srs` değil `crs`.
+
+## Isı haritası tarafındaki iki tuzak
+
+**4. Fonksiyonun adı `vec:Heatmap`, `gs:Heatmap` değil.** Belgelerin ve
+örneklerin çoğu `gs:` yazıyor; o ön ek WPS eklentisiyle geliyor ve biz WPS
+kurmadık. `HeatmapProcess` sınıfı `org.geotools.process.vector` paketinde
+olduğu için `vec:` altında kayıtlı. Yanlış ön ek stili yüklerken
+"Unable to find function gs:Heatmap" hatası veriyor.
+
+**5. .NET tarafında parametre adı `request` olmamalı.** OpenLayers her WMS
+isteğine `REQUEST=GetMap` ekliyor. Controller'daki parametre `request` diye
+adlandırılırsa ASP.NET bunu bir önek sanıp değerleri `request.Bbox`,
+`request.Width` adlarıyla arıyor; hiçbirini bulamayınca bütün alanlar
+varsayılan kalıyor ve istek sessizce 400'e düşüyor. Parametrenin adı bu
+yüzden `viewport`.
 
 ## Kurulum
 

@@ -1,8 +1,14 @@
 import axios from 'axios'
 import { getToken } from '../auth/authStorage'
 
+/**
+ * API'nin kökü. Dışa açık, çünkü OpenLayers'ın WMS kaynağı adresi
+ * kendisi kuruyor; axios'un baseURL'i ona yetmiyor.
+ */
+export const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:5215'
+
 const client = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:5215',
+  baseURL: API_BASE_URL,
 })
 
 // AuthContext açılışta kendi logout fonksiyonunu buraya kaydeder.

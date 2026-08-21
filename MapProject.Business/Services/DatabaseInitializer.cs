@@ -35,6 +35,7 @@ public class DatabaseInitializer : IDatabaseInitializer
         ("feature.update", "Çizim Güncelleme", "Mevcut çizimlerin bilgilerini ve konumunu değiştirebilir."),
         ("feature.delete", "Çizim Silme", "Çizimleri silebilir (soft delete)."),
         ("analysis.run", "Envanter Analizi", "Kesişim analizi çalıştırabilir."),
+        ("analysis.heatmap", "Isı Haritası Analizi", "Noktaların yoğunluk haritasını görüntüleyebilir."),
         ("user.manage", "Kullanıcı Yönetimi", "Admin panelinden kullanıcıları yönetebilir."),
         ("role.manage", "Rol Yönetimi", "Admin panelinden rolleri ve yetkileri yönetebilir."),
         ("geo.manage", "Coğrafi Yetki Tanımlama", "Kullanıcı ve rollere çizim alanı tanımlayabilir.")
@@ -44,7 +45,8 @@ public class DatabaseInitializer : IDatabaseInitializer
     [
         ("Yönetici", "Tüm yetkiler", []), // boş dizi = hepsi, aşağıda dolduruluyor
         ("Operatör", "Çizim yapabilir, yönetim ekranlarına giremez",
-            ["point.create", "line.create", "polygon.create", "feature.update", "feature.delete", "analysis.run"]),
+            ["point.create", "line.create", "polygon.create", "feature.update", "feature.delete",
+             "analysis.run", "analysis.heatmap"]),
         ("Görüntüleyici", "Sadece haritayı görüntüler", [])
     ];
 

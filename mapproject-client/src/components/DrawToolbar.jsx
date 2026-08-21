@@ -69,13 +69,38 @@ const ANALYSIS_TOOL = {
   ),
 }
 
-export default function DrawToolbar({ activeTool, onSelect, counts, disabled, canDelete }) {
+// Isı haritası bir çizim aracı değil, açık/kapalı bir gösterim seçeneği:
+// kullanıcı bir şey çizmiyor, var olan noktaların yoğunluğuna bakıyor.
+// Bu yüzden activeTool'a girmiyor, kendi durumunu taşıyor.
+const HEATMAP_TOOL = {
+  label: 'Isı Haritası Analizi',
+  permission: 'analysis.heatmap',
+  shortLabel: 'Isı',
+  icon: (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="6" opacity="0.75" />
+      <circle cx="12" cy="12" r="9.5" opacity="0.4" />
+    </svg>
+  ),
+}
+
+export default function DrawToolbar({
+  activeTool,
+  onSelect,
+  counts,
+  disabled,
+  canDelete,
+  isHeatmapOn,
+  onToggleHeatmap,
+}) {
   const { hasPermission } = useAuth()
 
   // Yetkisi olmayan araç hiç görünmüyor. Asıl kontrol sunucuda ama
   // kullanıcıya çalışmayacak bir düğme göstermek de doğru değil.
   const visibleTools = TOOLS.filter((tool) => hasPermission(tool.permission))
   const canAnalyze = hasPermission(ANALYSIS_TOOL.permission)
+  const canHeatmap = hasPermission(HEATMAP_TOOL.permission)
 
   const active =
     [...TOOLS, ANALYSIS_TOOL].find((tool) => tool.type === activeTool) ?? null
@@ -116,7 +141,21 @@ export default function DrawToolbar({ activeTool, onSelect, counts, disabled, ca
 
         {canAnalyze && renderButton(ANALYSIS_TOOL, 'draw-tool--analysis')}
 
-        {visibleTools.length === 0 && !canAnalyze && (
+        {canHeatmap && (
+          <button
+            type="button"
+            className={`draw-tool draw-tool--analysis ${isHeatmapOn ? 'draw-tool--active' : ''}`.trim()}
+            aria-pressed={isHeatmapOn}
+            aria-label={HEATMAP_TOOL.label}
+            onClick={onToggleHeatmap}
+          >
+            {HEATMAP_TOOL.icon}
+            <span className="draw-tool__label">{HEATMAP_TOOL.label}</span>
+            <span className="draw-tool__label-short">{HEATMAP_TOOL.shortLabel}</span>
+          </button>
+        )}
+
+        {visibleTools.length === 0 && !canAnalyze && !canHeatmap && (
           <span className="draw-toolbar__readonly">Görüntüleme yetkisi</span>
         )}
       </div>

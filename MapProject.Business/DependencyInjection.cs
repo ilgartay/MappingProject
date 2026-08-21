@@ -36,7 +36,27 @@ public static class DependencyInjection
     /// </summary>
     private static IServiceCollection AddGeoServerClient(this IServiceCollection services)
     {
+        // Veri okuma: GeoServer kapalıysa istek sonsuza kadar beklemesin;
+        // kullanıcı 100 saniye dönen bir çark yerine hızlıca hata görsün.
         services.AddHttpClient<IGeoServerFeatureReader, GeoServerFeatureReader>((provider, client) =>
+        {
+            ApplyBasicAuth(provider, client);
+            client.Timeout = TimeSpan.FromSeconds(15);
+        });
+
+        // Resim üretme: ısı haritası noktaları rasterleştirdiği için veri
+        // okumaktan uzun sürebiliyor, ona daha geniş bir süre veriyoruz.
+        services.AddHttpClient<IGeoServerMapRenderer, GeoServerMapRenderer>((provider, client) =>
+        {
+            ApplyBasicAuth(provider, client);
+            client.Timeout = TimeSpan.FromSeconds(30);
+        });
+
+        return services;
+
+        // provider, fabrika tarafından veriliyor. Burada services.BuildServiceProvider()
+        // çağırmak ikinci bir kapsayıcı yaratır ve singleton'ları çoğaltırdı.
+        static void ApplyBasicAuth(IServiceProvider provider, HttpClient client)
         {
             var settings = provider.GetRequiredService<IOptions<GeoServerSettings>>().Value;
 
@@ -46,12 +66,6 @@ public static class DependencyInjection
 
             client.DefaultRequestHeaders.Authorization =
                 new AuthenticationHeaderValue("Basic", credentials);
-
-            // GeoServer kapalıysa istek sonsuza kadar beklemesin; kullanıcı
-            // 100 saniye dönen bir çark yerine hızlıca hata görsün.
-            client.Timeout = TimeSpan.FromSeconds(15);
-        });
-
-        return services;
+        }
     }
 }

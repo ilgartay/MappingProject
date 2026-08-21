@@ -136,10 +136,14 @@ public class GeoServerFeatureReader : IGeoServerFeatureReader
     /// </summary>
     private string BuildGetFeatureUrl(string layer, int userId, string? extraCqlFilter)
     {
-        // EF'in global sorgu filtresi burada devrede değil: GeoServer tabloyu
-        // ham haliyle okuyor. Silinmiş kayıt elemesini biz yazmazsak silinen
-        // çizimler haritaya geri gelir.
-        var filter = $"is_deleted = false AND inserted_user_id = {userId}";
+        // Silinmiş kayıt elemesi burada değil, GeoServer'daki SQL View'ın
+        // içinde ("WHERE is_deleted = false"). Böylece kural tek yerde
+        // duruyor: WMS de WFS de aynı view'ı okuduğu için ikisinde ayrı
+        // ayrı filtre yazmak gerekmiyor.
+        //
+        // Sahiplik filtresi ise burada kalmak zorunda: kimin istediği
+        // isteğe göre değişiyor, view'a gömülemez.
+        var filter = $"inserted_user_id = {userId}";
 
         if (!string.IsNullOrWhiteSpace(extraCqlFilter))
         {

@@ -17,7 +17,9 @@ import { analyzeIntersection } from '../api/analysis'
 import { useAuth } from '../auth/useAuth'
 import { useMapInstance } from '../map/useMapInstance'
 import { geometryToWkt, wktToFeature } from '../map/wkt'
+import { refreshWmsLayer } from '../map/wmsLayers'
 import AnalysisPanel from './AnalysisPanel'
+import HeatmapLegend from './HeatmapLegend'
 import FeatureDetailPanel from './FeatureDetailPanel'
 import CoordinateSearch from './CoordinateSearch'
 import DrawToolbar from './DrawToolbar'
@@ -50,8 +52,16 @@ export default function MapView() {
   const drawRef = useRef(null)
 
   // Harita kurulumu ve katmanlar ayrı hook'ta; burada sadece kullanıyoruz.
-  const { mapRef, sourceRef, featureLayerRef, targetSourceRef, analysisSourceRef, areaSourceRef } =
-    useMapInstance(containerRef)
+  const {
+    mapRef,
+    sourceRef,
+    featureLayerRef,
+    targetSourceRef,
+    analysisSourceRef,
+    areaSourceRef,
+    featureWmsRef,
+    heatmapRef,
+  } = useMapInstance(containerRef)
 
   // 'Point' | 'LineString' | 'Polygon' | 'Analysis'
   const [activeTool, setActiveTool] = useState(null)
@@ -62,6 +72,7 @@ export default function MapView() {
   const [counts, setCounts] = useState({ points: 0, lines: 0, polygons: 0 })
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
+  const [isHeatmapOn, setIsHeatmapOn] = useState(false)
 
   /**
    * Poligonu backend'e gönderip kesişen envanterleri sayar.
@@ -188,6 +199,11 @@ export default function MapView() {
 
       // Feature'ı source'a Draw kendisi ekliyor; biz sadece bilgilerini
       // sormak için bekletiyoruz. İptal edilirse geri çıkaracağız.
+      //
+      // Görünür işaretini burada koyuyoruz: kullanıcı isim/renk penceresini
+      // doldururken çizdiği şekli görmeye devam etsin. İşaret kaydetme
+      // bitip WMS resmi gelene kadar duruyor (handleSave).
+      event.feature.set('interactive', true)
       setPending({ feature: event.feature, geometryType: activeTool })
     })
 
@@ -283,6 +299,28 @@ export default function MapView() {
     }
   }, [activeTool])
 
+  // --- Isı haritasını aç/kapa ---
+  useEffect(() => {
+    // Katman haritada duruyor, sadece görünürlüğünü değiştiriyoruz:
+    // her açılışta yeniden kurmak gereksiz istek demek olurdu.
+    heatmapRef.current?.setVisible(isHeatmapOn)
+  }, [isHeatmapOn, heatmapRef])
+
+  // --- Seçili kaydı görünür kıl ---
+  //
+  // Kayıtlı çizimleri WMS gösteriyor, vektör katmanı görünmez. Ama
+  // seçilen kaydı sürüklerken kullanıcının şekli görmesi gerekiyor.
+  // Temizlik fonksiyonu bayrağı kaldırdığı için seçim nasıl biterse
+  // bitsin (kaydet, vazgeç, Esc, sil) kayıt yeniden görünmez oluyor.
+  // Yeni çizimin bayrağı ise drawend'de konuyor, aşağıda.
+  useEffect(() => {
+    const feature = selected?.feature
+    if (!feature) return
+
+    feature.set('interactive', true)
+    return () => feature.unset('interactive')
+  }, [selected])
+
   // --- Klavye kısayolları ---
   useEffect(() => {
     function onKeyDown(event) {
@@ -354,8 +392,17 @@ export default function MapView() {
       if (geometryType === 'Polygon') {
         runAnalysis(wkt, 'Kaydedilen poligon analizi', saved.id)
       }
+
+      // WMS bir resim; kendiliğinden güncellenmiyor. Yeni çizimin genel
+      // gösterime girmesi için katmanı sunucudan yeniden istiyoruz.
+      //
+      // Görünür işaretini hemen kaldırmıyoruz: yeni resim gelene kadar
+      // (yarım saniye kadar) çizim ekrandan kaybolur, kullanıcı da
+      // kaydının silindiğini sanırdı.
+      refreshWmsLayer(featureWmsRef.current, () => feature.unset('interactive'))
+      refreshWmsLayer(heatmapRef.current)
     },
-    [pending, runAnalysis],
+    [pending, runAnalysis, featureWmsRef, heatmapRef],
   )
 
   /**
@@ -385,8 +432,12 @@ export default function MapView() {
       feature.set('name', saved.name)
       feature.set('color', saved.color)
       setSelected(null)
+
+      // İsim, renk veya geometri değişmiş olabilir; resmi tazeliyoruz.
+      refreshWmsLayer(featureWmsRef.current)
+      refreshWmsLayer(heatmapRef.current)
     },
-    [selected],
+    [selected, featureWmsRef, heatmapRef],
   )
 
   /** Vazgeç: harita üzerinde sürüklenen köşeleri eski haline döndürür. */
@@ -408,7 +459,10 @@ export default function MapView() {
     setCounts((prev) => ({ ...prev, [countKey]: Math.max(0, prev[countKey] - 1) }))
     setIsConfirmingDelete(false)
     setSelected(null)
-  }, [selected, sourceRef])
+
+    refreshWmsLayer(featureWmsRef.current)
+    refreshWmsLayer(heatmapRef.current)
+  }, [selected, sourceRef, featureWmsRef, heatmapRef])
 
   return (
     <div className="map-view">
@@ -422,7 +476,13 @@ export default function MapView() {
         counts={counts}
         disabled={pending !== null || isLoading}
         canDelete={hasPermission('feature.delete')}
+        isHeatmapOn={isHeatmapOn}
+        onToggleHeatmap={() => setIsHeatmapOn((on) => !on)}
       />
+
+      {/* Lejant yalnızca ısı haritası açıkken: kapalıyken açıklayacağı
+          bir renk yok, boş yer kaplardı. */}
+      {isHeatmapOn && <HeatmapLegend />}
 
       {isLoading && (
         <p className="map-view__loading" role="status">

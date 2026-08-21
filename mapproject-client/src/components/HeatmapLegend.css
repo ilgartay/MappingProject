@@ -1,0 +1,54 @@
+/* Sağ altta duruyor: sol altta ölçek çubuğu ve zoom, sağ üstte
+   analiz/detay paneli var. Kalan tek boş köşe burası. */
+.heatmap-legend {
+  position: absolute;
+  right: 12px;
+  bottom: 46px;
+  z-index: 2;
+  width: 190px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: var(--shadow);
+  /* Haritayı kapatmasın: üzerinden tıklama alta geçsin. */
+  pointer-events: none;
+}
+
+.heatmap-legend__title {
+  margin: 0 0 7px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.heatmap-legend__bar {
+  height: 12px;
+  border-radius: 3px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+}
+
+.heatmap-legend__ticks {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+  font-size: 0.62rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+.heatmap-legend__note {
+  margin: 6px 0 0;
+  font-size: 0.66rem;
+  line-height: 1.35;
+  color: var(--text-muted);
+}
+
+/* Dar ekranda fare konumu zaten gizli; lejant alt şeride yakın durabilir. */
+@media (max-width: 560px) {
+  .heatmap-legend {
+    width: auto;
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+  }
+}
