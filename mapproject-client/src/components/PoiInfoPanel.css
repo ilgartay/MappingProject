@@ -74,6 +74,30 @@
   color: var(--text-muted);
 }
 
+.poi-panel__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.poi-panel__delete {
+  padding: 7px 16px;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: var(--danger-bg);
+  color: var(--danger);
+  font: inherit;
+  font-size: 0.83rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.poi-panel__delete:hover {
+  background: #fee2e2;
+}
+
 @media (max-width: 560px) {
   .poi-panel {
     top: auto;

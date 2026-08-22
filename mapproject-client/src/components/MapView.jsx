@@ -14,13 +14,14 @@ import {
   updateFeature,
 } from '../api/features'
 import { analyzeIntersection } from '../api/analysis'
-import { createPoi, fetchCategories, fetchPois } from '../api/poi'
+import { createPoi, deletePoi, fetchCategories, fetchPois } from '../api/poi'
 import { useAuth } from '../auth/useAuth'
 import { useMapInstance } from '../map/useMapInstance'
 import { geometryToWkt, wktToFeature } from '../map/wkt'
 import { refreshWmsLayer } from '../map/wmsLayers'
 import AnalysisPanel from './AnalysisPanel'
 import HeatmapLegend from './HeatmapLegend'
+import DeletePoiDialog from './DeletePoiDialog'
 import PoiInfoPanel from './PoiInfoPanel'
 import SavePoiDialog from './SavePoiDialog'
 import FeatureDetailPanel from './FeatureDetailPanel'
@@ -84,6 +85,7 @@ export default function MapView() {
   const [categories, setCategories] = useState([])
   const [pendingPoi, setPendingPoi] = useState(null)
   const [selectedPoi, setSelectedPoi] = useState(null)
+  const [isConfirmingPoiDelete, setIsConfirmingPoiDelete] = useState(false)
 
   /**
    * Poligonu backend'e gönderip kesişen envanterleri sayar.
@@ -418,6 +420,7 @@ export default function MapView() {
       }
       setActiveTool(null)
       setIsConfirmingDelete(false)
+      setIsConfirmingPoiDelete(false)
       setSelectedPoi(null)
       // Geometri değişikliği varsa geri alınsın diye state'i fonksiyonel
       // güncelliyoruz; effect'in bağımlılığına selected eklemeye gerek kalmıyor.
@@ -497,6 +500,23 @@ export default function MapView() {
     },
     [pendingPoi, heatmapRef],
   )
+
+  /** POI'yi soft delete eder ve haritadaki işaretini kaldırır. */
+  const handleDeletePoi = useCallback(async () => {
+    await deletePoi(selectedPoi.id)
+
+    // Kaydın haritadaki işaretini kaynaktan çıkarıyoruz; POI katmanı
+    // vektör olduğu için WMS yenilemesi gerekmiyor.
+    const source = poiSourceRef.current
+    const feature = source.getFeatureById(`poi-${selectedPoi.id}`)
+    if (feature) source.removeFeature(feature)
+
+    setIsConfirmingPoiDelete(false)
+    setSelectedPoi(null)
+
+    // Isı haritası noktaları sayıyor; POI silinince tazelensin.
+    refreshWmsLayer(heatmapRef.current)
+  }, [selectedPoi, poiSourceRef, heatmapRef])
 
   /** Vazgeçilirse haritaya konan geçici işaret kalkar. */
   const handleCancelPoi = useCallback(() => {
@@ -608,7 +628,20 @@ export default function MapView() {
       {/* POI bilgi paneli, çizim detay paneliyle aynı köşede duruyor;
           ikisi aynı anda açılamıyor (tıklama biri açıkken devre dışı). */}
       {selectedPoi && (
-        <PoiInfoPanel poi={selectedPoi} onClose={() => setSelectedPoi(null)} />
+        <PoiInfoPanel
+          poi={selectedPoi}
+          canDelete={hasPermission('poi.manage')}
+          onDelete={() => setIsConfirmingPoiDelete(true)}
+          onClose={() => setSelectedPoi(null)}
+        />
+      )}
+
+      {selectedPoi && isConfirmingPoiDelete && (
+        <DeletePoiDialog
+          name={selectedPoi.name}
+          onDelete={handleDeletePoi}
+          onCancel={() => setIsConfirmingPoiDelete(false)}
+        />
       )}
 
       {pending && (

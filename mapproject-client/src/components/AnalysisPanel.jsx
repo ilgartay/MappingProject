@@ -4,6 +4,7 @@ const TYPE_LABELS = {
   point: 'Nokta',
   line: 'Çizgi',
   polygon: 'Poligon',
+  poi: 'POI',
 }
 
 /**
@@ -55,6 +56,10 @@ export default function AnalysisPanel({ title, isLoading, result, error, onClose
             <li>
               <span>Poligon</span>
               <strong>{result.polygonCount}</strong>
+            </li>
+            <li>
+              <span>POI</span>
+              <strong>{result.poiCount}</strong>
             </li>
           </ul>
 

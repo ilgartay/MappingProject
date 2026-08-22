@@ -16,11 +16,12 @@ function formatDate(value) {
 /**
  * POI'ye tıklanınca açılan bilgi paneli.
  *
- * Salt okunur: POI'ler paylaşılan veri, düzenleme admin panelinden
- * yapılıyor. Operatörün kendi eklediğini haritadan değiştirmesine
- * izin verseydik başkasının kaydını da değiştirebilmesi gerekirdi.
+ * Bilgiler salt okunur; POI'ler paylaşılan veri ve düzenleme admin
+ * panelinden yapılıyor. Silme düğmesi ise yalnızca POI yönetimi yetkisi
+ * olana görünüyor - yönetici haritada gördüğü yanlış kaydı oradan
+ * kaldırabilsin diye.
  */
-export default function PoiInfoPanel({ poi, onClose }) {
+export default function PoiInfoPanel({ poi, canDelete, onDelete, onClose }) {
   return (
     <aside className="poi-panel" role="dialog" aria-label="POI bilgisi">
       <header className="poi-panel__header">
@@ -57,6 +58,14 @@ export default function PoiInfoPanel({ poi, onClose }) {
           </span>
         </dd>
       </dl>
+
+      {canDelete && (
+        <div className="poi-panel__actions">
+          <button type="button" className="poi-panel__delete" onClick={onDelete}>
+            Sil
+          </button>
+        </div>
+      )}
     </aside>
   )
 }

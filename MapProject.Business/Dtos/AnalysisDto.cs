@@ -18,7 +18,7 @@ public class AnalysisRequestDto
 
 public class AnalysisItemDto
 {
-    /// <summary>"point" | "line" | "polygon"</summary>
+    /// <summary>"point" | "line" | "polygon" | "poi"</summary>
     public string Type { get; set; } = string.Empty;
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
@@ -29,6 +29,10 @@ public class AnalysisResultDto
     public int PointCount { get; set; }
     public int LineCount { get; set; }
     public int PolygonCount { get; set; }
+
+    /// <summary>Alanın içine düşen ilgi noktası sayısı.</summary>
+    public int PoiCount { get; set; }
+
     public int TotalCount { get; set; }
 
     /// <summary>Kesişen envanterlerin listesi; kullanıcıya isim göstermek için.</summary>

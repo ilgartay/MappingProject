@@ -109,6 +109,12 @@
   background: #059669;
 }
 
+/* POI rozeti haritadaki işaretle aynı renkte: listede "POI" yazan
+   satırın haritada hangi şekle karşılık geldiği belli olsun. */
+.analysis-panel__badge--poi {
+  background: #e11d48;
+}
+
 .analysis-panel__status {
   margin: 10px 0 0;
   font-size: 0.8rem;

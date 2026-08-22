@@ -44,24 +44,34 @@ public class AnalysisService : IAnalysisService
             ? $"{intersects} AND id <> {excludeId}"
             : intersects;
 
-        // Üç katman birbirinden bağımsız; paralel soruyoruz.
+        // Katmanlar birbirinden bağımsız; paralel soruyoruz.
         var pointTask = _geoServer.GetOwnedFeaturesAsync(_settings.PointLayer, userId, intersects);
         var lineTask = _geoServer.GetOwnedFeaturesAsync(_settings.LineLayer, userId, intersects);
         var polygonTask = _geoServer.GetOwnedFeaturesAsync(_settings.PolygonLayer, userId, polygonFilter);
 
-        await Task.WhenAll(pointTask, lineTask, polygonTask);
+        // POI'de sahiplik filtresi yok: ilgi noktaları paylaşılan veri,
+        // alanın içine düşen her POI sayılıyor - kim eklemiş olursa olsun.
+        var poiTask = _geoServer.QueryAsync(_settings.PoiLayer, intersects);
+
+        await Task.WhenAll(pointTask, lineTask, polygonTask, poiTask);
 
         var points = ToItems(await pointTask, "point");
         var lines = ToItems(await lineTask, "line");
         var polygons = ToItems(await polygonTask, "polygon");
+
+        // POI'nin ad kolonu "isim"; diğerlerindeki "name" değil.
+        var pois = (await poiTask)
+            .Select(r => new AnalysisItemDto { Type = "poi", Id = r.GetInt("id"), Name = r.GetString("isim") })
+            .ToList();
 
         return new AnalysisResultDto
         {
             PointCount = points.Count,
             LineCount = lines.Count,
             PolygonCount = polygons.Count,
-            TotalCount = points.Count + lines.Count + polygons.Count,
-            Items = [.. points, .. lines, .. polygons]
+            PoiCount = pois.Count,
+            TotalCount = points.Count + lines.Count + polygons.Count + pois.Count,
+            Items = [.. points, .. lines, .. polygons, .. pois]
         };
     }
 
