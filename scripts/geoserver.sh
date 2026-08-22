@@ -20,4 +20,11 @@ GEOSERVER_DATA_DIR="${GEOSERVER_DATA_DIR:-$HOME/geoserver_data}"
 export PATH="$JAVA_HOME/bin:$PATH"
 
 cd "$GEOSERVER_HOME"
-exec java -DGEOSERVER_DATA_DIR="$GEOSERVER_DATA_DIR" -jar start.jar
+
+# -Djava.awt.headless=true: GeoServer'in arayuzu yok, tarayicidan
+# kullaniliyor. Bu bayrak olmadan macOS surecin Dock'ta bir Java simgesi
+# gostermesine yol aciyor; simgeye tiklaninca acilacak bir pencere
+# olmadigi icin kullanici "acilmiyor" saniyor.
+exec java -Djava.awt.headless=true \
+  -DGEOSERVER_DATA_DIR="$GEOSERVER_DATA_DIR" \
+  -jar start.jar
