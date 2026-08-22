@@ -8,7 +8,7 @@ GeoServer'ın yapısı iç içe dört kutu gibi düşünülebilir:
 |---|---|---|
 | **Workspace** | Katmanları gruplayan isim alanı. Aynı addaki iki tabloyu ayrı projelerde tutabilmeyi sağlar. | `mapproject` |
 | **Store** | Verinin fiziksel kaynağı: bir veritabanı bağlantısı ya da dosya. | `mapdb` (PostGIS bağlantısı) |
-| **Layer** | Store içindeki bir tablonun ya da SQL View'ın yayınlanmış hali. | `vw_point`, `vw_line`, `vw_polygon` |
+| **Layer** | Store içindeki bir tablonun ya da SQL View'ın yayınlanmış hali. | `vw_point`, `vw_line`, `vw_polygon`, `vw_poi` |
 | **Layer Group** | Birden çok katmanı tek isimle sunma. | Kullanmıyoruz |
 
 Servisler ise aynı katmanı iki farklı biçimde dışarı verir:
@@ -51,6 +51,27 @@ bakan biri de kuralın nerede olduğunu görüyor.
 
 Kullanıcı bazlı filtre ise view'a gömülemez, çünkü isteğe göre değişiyor.
 Onu her istekte CQL olarak gönderiyoruz: `cql_filter=inserted_user_id = 2`.
+
+### vw_poi — join yapan view
+
+POI view'i diğer üçünden daha ileri gidiyor: kategori ağacını özyinelemeli
+bir CTE ile gezip `Yeme-İçme → Restoran` biçiminde tam yolu üretiyor, ekleyen
+kullanıcının adını da join'liyor. Böylece POI listesi **tek WFS isteğiyle**
+tam geliyor - API'nin ayrıca kategori ve kullanıcı sorgusu atması gerekmiyor.
+
+SQL'i [geoserver/sql/vw_poi.sql](../geoserver/sql/vw_poi.sql) dosyasında;
+kurulum betiği JSON gövdesini `python3` ile kuruyor. Sebebi: SQL içinde
+`"Users"` gibi çift tırnaklı tanımlayıcılar var ve kabuk bunları JSON'a
+gömerken bozuyordu - tırnak kaçışını elle yönetmek yerine JSON'u üreten
+bir araca bırakmak daha güvenli.
+
+POI'ler kullanıcıya özel değil: bir eczanenin konumu herkes için aynı bilgi.
+Bu yüzden `vw_poi` okunurken sahiplik filtresi eklenmiyor; `user_id` yalnızca
+"kim ekledi" bilgisi olarak taşınıyor ve admin panelinde gösteriliyor.
+
+POI'ler haritada WMS ile değil **vektör** olarak çiziliyor. Gerekçesi bir
+önceki bölümdeki ayrımın aynısı: her POI'ye tıklanıp bilgi paneli açılması
+gerekiyor, resim üzerinde bu mümkün değil.
 
 ## Isı haritası
 

@@ -4,6 +4,7 @@ import LoginPage from './pages/LoginPage'
 import MapPage from './pages/MapPage'
 import AdminLayout from './pages/admin/AdminLayout'
 import UsersPage from './pages/admin/UsersPage'
+import PoiPage from './pages/admin/PoiPage'
 import RolesPage from './pages/admin/RolesPage'
 
 export default function App() {
@@ -33,6 +34,7 @@ export default function App() {
         <Route index element={<Navigate to="/admin/users" replace />} />
         <Route path="users" element={<UsersPage />} />
         <Route path="roles" element={<RolesPage />} />
+        <Route path="poi" element={<PoiPage />} />
       </Route>
 
       {/* Bilinmeyen her adres haritaya gider; giriş yoksa ProtectedRoute login'e atar. */}

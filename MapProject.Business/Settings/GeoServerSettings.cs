@@ -33,6 +33,12 @@ public class GeoServerSettings
     public string PolygonLayer { get; set; } = "vw_polygon";
 
     /// <summary>
+    /// POI katmanı. Bu view kategori ve kullanıcı tablolarını da join'liyor,
+    /// böylece liste tek istekte kategori adı ve ekleyen kullanıcıyla geliyor.
+    /// </summary>
+    public string PoiLayer { get; set; } = "vw_poi";
+
+    /// <summary>
     /// Isı haritası SLD'sinin adı. Yoğunluk hesabı bu stilin içindeki
     /// Heatmap dönüşümünde yapılıyor, kodumuzda değil.
     /// </summary>

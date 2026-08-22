@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Net;
 using System.Text.Json;
 using MapProject.Business.Dtos;
@@ -62,7 +61,31 @@ public class GeoServerFeatureReader : IGeoServerFeatureReader
         string? extraCqlFilter = null,
         CancellationToken cancellationToken = default)
     {
-        var url = BuildGetFeatureUrl(layer, userId, extraCqlFilter);
+        // Silinmiş kayıt elemesi burada değil, GeoServer'daki SQL View'ın
+        // içinde ("WHERE is_deleted = false"). Böylece kural tek yerde
+        // duruyor: WMS de WFS de aynı view'ı okuduğu için ikisinde ayrı
+        // ayrı filtre yazmak gerekmiyor.
+        //
+        // Sahiplik filtresi ise burada kalmak zorunda: kimin istediği
+        // isteğe göre değişiyor, view'a gömülemez.
+        var filter = $"inserted_user_id = {userId}";
+
+        if (!string.IsNullOrWhiteSpace(extraCqlFilter))
+        {
+            filter += $" AND ({extraCqlFilter})";
+        }
+
+        var records = await QueryAsync(layer, filter, "id", cancellationToken);
+        return records.Select(ToDto).ToList();
+    }
+
+    public async Task<IReadOnlyList<GeoServerRecord>> QueryAsync(
+        string layer,
+        string? cqlFilter = null,
+        string? sortBy = "id",
+        CancellationToken cancellationToken = default)
+    {
+        var url = BuildGetFeatureUrl(layer, cqlFilter, sortBy);
 
         HttpResponseMessage response;
 
@@ -112,7 +135,7 @@ public class GeoServerFeatureReader : IGeoServerFeatureReader
             return [];
         }
 
-        return collection.Select(ToDto).ToList();
+        return collection.Select(f => new GeoServerRecord(f)).ToList();
     }
 
     /// <summary>
@@ -134,128 +157,45 @@ public class GeoServerFeatureReader : IGeoServerFeatureReader
     ///    "CQL_FILTER" sessizce yok sayılıyor; sonuç "veri gelmedi" değil
     ///    "filtresiz tüm tablo geldi" oluyor ki çok daha tehlikeli.
     /// </summary>
-    private string BuildGetFeatureUrl(string layer, int userId, string? extraCqlFilter)
+    private string BuildGetFeatureUrl(string layer, string? cqlFilter, string? sortBy)
     {
-        // Silinmiş kayıt elemesi burada değil, GeoServer'daki SQL View'ın
-        // içinde ("WHERE is_deleted = false"). Böylece kural tek yerde
-        // duruyor: WMS de WFS de aynı view'ı okuduğu için ikisinde ayrı
-        // ayrı filtre yazmak gerekmiyor.
-        //
-        // Sahiplik filtresi ise burada kalmak zorunda: kimin istediği
-        // isteğe göre değişiyor, view'a gömülemez.
-        var filter = $"inserted_user_id = {userId}";
-
-        if (!string.IsNullOrWhiteSpace(extraCqlFilter))
+        var parameters = new List<string>
         {
-            filter += $" AND ({extraCqlFilter})";
-        }
-
-        var query = string.Join("&",
-        [
             "service=WFS",
             "version=1.0.0",
             "request=GetFeature",
             $"typeName={Uri.EscapeDataString($"{_settings.Workspace}:{layer}")}",
-            "outputFormat=application/json",
-            // Liste sırası EF'teki OrderBy(e => e.Id) ile aynı kalsın.
-            "sortBy=id",
-            $"cql_filter={Uri.EscapeDataString(filter)}"
-        ]);
+            "outputFormat=application/json"
+        };
 
-        return $"{_settings.BaseUrl.TrimEnd('/')}/{_settings.Workspace}/ows?{query}";
+        // Liste sırası EF'teki OrderBy(e => e.Id) ile aynı kalsın.
+        if (!string.IsNullOrWhiteSpace(sortBy))
+        {
+            parameters.Add($"sortBy={Uri.EscapeDataString(sortBy)}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(cqlFilter))
+        {
+            parameters.Add($"cql_filter={Uri.EscapeDataString(cqlFilter)}");
+        }
+
+        return $"{_settings.BaseUrl.TrimEnd('/')}/{_settings.Workspace}/ows?{string.Join("&", parameters)}";
     }
 
-    private static FeatureDto ToDto(IFeature feature)
-    {
-        var attributes = feature.Attributes;
-
-        return new FeatureDto
+    private static FeatureDto ToDto(GeoServerRecord record) =>
+        new()
         {
-            Id = ReadInt(attributes, "id"),
-            Name = ReadString(attributes, "name"),
+            Id = record.GetInt("id"),
+            Name = record.GetString("name"),
             // Geometri GeoJSON'dan NTS nesnesi olarak geldi; istemciye
             // gönderdiğimiz biçim WKT olduğu için burada çeviriyoruz.
-            Wkt = feature.Geometry?.AsText() ?? string.Empty,
-            Color = ReadString(attributes, "color"),
-            InsertedUserId = ReadInt(attributes, "inserted_user_id"),
-            InsertedDate = ReadDate(attributes, "inserted_date") ?? default,
-            ModifiedDate = ReadDate(attributes, "modified_date"),
-            IsActive = ReadBool(attributes, "is_active")
+            Wkt = record.Wkt,
+            Color = record.GetString("color"),
+            InsertedUserId = record.GetInt("inserted_user_id"),
+            InsertedDate = record.GetDate("inserted_date") ?? default,
+            ModifiedDate = record.GetDate("modified_date"),
+            IsActive = record.GetBool("is_active")
         };
-    }
-
-    // --- Öznitelik okuma ---
-    //
-    // GeoJSON'da tipler gevşek: sayı JsonElement, long ya da decimal olarak
-    // gelebiliyor. Her alanı tek tek cast etmek yerine ortak yardımcılardan
-    // geçiriyoruz.
-
-    private static object? Read(IAttributesTable attributes, string name)
-    {
-        return attributes.Exists(name) ? attributes[name] : null;
-    }
-
-    private static int ReadInt(IAttributesTable attributes, string name)
-    {
-        var value = Read(attributes, name);
-
-        return value switch
-        {
-            null => 0,
-            JsonElement element => element.TryGetInt32(out var parsed) ? parsed : 0,
-            _ => Convert.ToInt32(value, CultureInfo.InvariantCulture)
-        };
-    }
-
-    private static string ReadString(IAttributesTable attributes, string name)
-    {
-        var value = Read(attributes, name);
-
-        return value switch
-        {
-            null => string.Empty,
-            JsonElement element => element.GetString() ?? string.Empty,
-            _ => value.ToString() ?? string.Empty
-        };
-    }
-
-    private static bool ReadBool(IAttributesTable attributes, string name)
-    {
-        var value = Read(attributes, name);
-
-        return value switch
-        {
-            null => false,
-            JsonElement element => element.ValueKind == JsonValueKind.True,
-            _ => Convert.ToBoolean(value, CultureInfo.InvariantCulture)
-        };
-    }
-
-    /// <summary>
-    /// GeoServer tarihleri "2026-08-15T19:50:51.100Z" biçiminde, metin olarak
-    /// gönderiyor. AdjustToUniversal olmadan yerel saate kayardı.
-    /// </summary>
-    private static DateTime? ReadDate(IAttributesTable attributes, string name)
-    {
-        var value = Read(attributes, name);
-
-        var text = value switch
-        {
-            null => null,
-            JsonElement element => element.ValueKind == JsonValueKind.String ? element.GetString() : null,
-            DateTime dateTime => dateTime.ToString("O", CultureInfo.InvariantCulture),
-            _ => value.ToString()
-        };
-
-        if (string.IsNullOrWhiteSpace(text)) return null;
-
-        return DateTime.TryParse(
-            text, CultureInfo.InvariantCulture,
-            DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal,
-            out var parsed)
-            ? parsed
-            : null;
-    }
 
     private static string Truncate(string text, int max) =>
         text.Length <= max ? text : text[..max] + "...";

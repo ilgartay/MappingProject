@@ -28,4 +28,17 @@ public interface IGeoServerFeatureReader
         int userId,
         string? extraCqlFilter = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Ham okuma: geometri + öznitelikler, kendi DTO'suna çevirmek isteyen
+    /// çağıran için. Sahiplik filtresi eklemiyor - POI gibi paylaşılan
+    /// katmanlarda kayıtlar kullanıcıya özel değil.
+    /// </summary>
+    /// <param name="cqlFilter">null ise filtresiz.</param>
+    /// <param name="sortBy">Sıralama kolonu; null ise sunucu sırası.</param>
+    Task<IReadOnlyList<GeoServerRecord>> QueryAsync(
+        string layer,
+        string? cqlFilter = null,
+        string? sortBy = "id",
+        CancellationToken cancellationToken = default);
 }

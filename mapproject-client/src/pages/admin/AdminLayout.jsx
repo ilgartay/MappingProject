@@ -26,6 +26,19 @@ const MENU = [
       </svg>
     ),
   },
+  {
+    to: '/admin/poi',
+    label: 'POI Yönetimi',
+    // Kategori yetkisi de POI yetkisi de bu ekrana girmeye yeter;
+    // ekranın içindeki düğmeler ayrıca kendi yetkisine bakıyor.
+    permission: ['category.manage', 'poi.manage'],
+    icon: (
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11Z" />
+        <circle cx="12" cy="10" r="2.5" />
+      </svg>
+    ),
+  },
 ]
 
 /**
@@ -34,7 +47,12 @@ const MENU = [
  */
 export default function AdminLayout() {
   const { username, hasPermission, logout } = useAuth()
-  const visibleMenu = MENU.filter((item) => hasPermission(item.permission))
+  // permission bir dizi olabiliyor: o zaman herhangi biri yetiyor.
+  const visibleMenu = MENU.filter((item) =>
+    Array.isArray(item.permission)
+      ? item.permission.some((code) => hasPermission(code))
+      : hasPermission(item.permission),
+  )
 
   return (
     <div className="admin">

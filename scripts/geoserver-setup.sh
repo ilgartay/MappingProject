@@ -39,6 +39,8 @@ post() {
   esac
 }
 
+SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
+
 echo "GeoServer: $GS_URL"
 
 echo "workspace..."
@@ -96,10 +98,59 @@ make_view tbl_point   vw_point   Point
 make_view tbl_line    vw_line    LineString
 make_view tbl_polygon vw_polygon Polygon
 
+# POI view'inin SQL'i ayri dosyada: icinde "Users" gibi cift tirnakli
+# tanimlayicilar var ve kabuk bunlari JSON govdesine gomerken bozuyordu.
+# JSON'u python3 ile kurmak kacislari dogru yapiyor, SQL de okunur kaliyor.
+echo "POI view..."
+POI_SQL_FILE="$SCRIPT_DIR/../geoserver/sql/vw_poi.sql"
+
+if [ -f "$POI_SQL_FILE" ]; then
+  python3 - "$POI_SQL_FILE" > /tmp/mapproject_vw_poi.json <<'PYEOF'
+import json, sys
+
+sql = open(sys.argv[1], encoding="utf-8").read()
+# Yorum satirlarini atiyoruz: GeoServer SQL'i tek satirlik bir alt sorguya
+# sariyor, "--" ile baslayan yorum kalan her seyi yorum haline getirirdi.
+sql = " ".join(
+    line for line in sql.splitlines()
+    if line.strip() and not line.strip().startswith("--")
+)
+
+print(json.dumps({"featureType": {
+    "name": "vw_poi",
+    "nativeName": "vw_poi",
+    "title": "vw_poi (SQL View)",
+    "srs": "EPSG:4326",
+    "enabled": True,
+    "metadata": {"entry": [{
+        "@key": "JDBC_VIRTUAL_TABLE",
+        "virtualTable": {
+            "name": "vw_poi",
+            "sql": sql,
+            "escapeSql": False,
+            "keyColumn": "id",
+            "geometry": {"name": "geom", "type": "Point", "srid": 4326},
+        },
+    }]},
+}}))
+PYEOF
+
+  code=$(curl -s $AUTH -XPOST -H "Content-Type: application/json" \
+    -d @/tmp/mapproject_vw_poi.json -o /dev/null -w "%{http_code}" \
+    "$REST/workspaces/$WORKSPACE/datastores/$STORE/featuretypes")
+
+  case "$code" in
+    201)         echo "  olusturuldu: vw_poi" ;;
+    403|409|500) echo "  zaten var: vw_poi" ;;
+    *)           echo "  beklenmeyen cevap $code: vw_poi" ;;
+  esac
+else
+  echo "  ATLANDI: $POI_SQL_FILE bulunamadi"
+fi
+
 # SLD stilleri: WMS gosteriminin rengi/etiketi ve isi haritasi burada.
 # Repoda geoserver/styles altinda duruyorlar, yani surum kontrolunde.
 echo "stiller..."
-SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 
 for file in "$SCRIPT_DIR/../geoserver/styles"/*.sld; do
   [ -e "$file" ] || continue

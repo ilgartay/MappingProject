@@ -11,7 +11,7 @@ import ScaleLine from 'ol/control/ScaleLine'
 import { fromLonLat, transformExtent } from 'ol/proj'
 import 'ol/ol.css'
 
-import { allowedAreaStyle, analysisStyle, featureStyle, targetStyle } from './styles'
+import { allowedAreaStyle, analysisStyle, featureStyle, poiStyle, targetStyle } from './styles'
 import { createFeatureWmsLayer, createHeatmapLayer } from './wmsLayers'
 import { TURKEY_CENTER, TURKEY_EXTENT } from './turkey'
 
@@ -57,6 +57,10 @@ export function useMapInstance(containerRef) {
   /** Isı haritası; "Isı Haritası Analizi" açılana kadar gizli. */
   const heatmapRef = useRef(null)
 
+  /** İlgi noktaları (POI). Tıklanıp bilgi paneli açıldığı için vektör. */
+  const poiSourceRef = useRef(null)
+  const poiLayerRef = useRef(null)
+
   useEffect(() => {
     const source = new VectorSource()
     sourceRef.current = source
@@ -86,6 +90,15 @@ export function useMapInstance(containerRef) {
     const heatmap = createHeatmapLayer()
     heatmapRef.current = heatmap
 
+    // POI'ler WMS ile değil vektör olarak çiziliyor: her birine tıklanıp
+    // bilgi paneli açılması gerekiyor, resim üzerinde bu mümkün değil.
+    // Önceki ödevdeki ayrımın aynısı - gösterim WMS, etkileşim WFS.
+    const poiSource = new VectorSource()
+    poiSourceRef.current = poiSource
+
+    const poiLayer = new VectorLayer({ source: poiSource, style: poiStyle })
+    poiLayerRef.current = poiLayer
+
     const map = new Map({
       target: containerRef.current,
       layers: [
@@ -97,6 +110,7 @@ export function useMapInstance(containerRef) {
         featureWms,
         // Etkileşim katmanı: görünmez, ama tıklanabilir ve düzenlenebilir.
         featureLayer,
+        poiLayer,
         new VectorLayer({ source: areaSource, style: allowedAreaStyle }),
         new VectorLayer({ source: analysisSource, style: analysisStyle }),
         new VectorLayer({ source: targetSource, style: targetStyle }),
@@ -149,5 +163,7 @@ export function useMapInstance(containerRef) {
     areaSourceRef,
     featureWmsRef,
     heatmapRef,
+    poiSourceRef,
+    poiLayerRef,
   }
 }

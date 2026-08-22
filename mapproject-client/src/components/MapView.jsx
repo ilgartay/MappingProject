@@ -14,12 +14,15 @@ import {
   updateFeature,
 } from '../api/features'
 import { analyzeIntersection } from '../api/analysis'
+import { createPoi, fetchCategories, fetchPois } from '../api/poi'
 import { useAuth } from '../auth/useAuth'
 import { useMapInstance } from '../map/useMapInstance'
 import { geometryToWkt, wktToFeature } from '../map/wkt'
 import { refreshWmsLayer } from '../map/wmsLayers'
 import AnalysisPanel from './AnalysisPanel'
 import HeatmapLegend from './HeatmapLegend'
+import PoiInfoPanel from './PoiInfoPanel'
+import SavePoiDialog from './SavePoiDialog'
 import FeatureDetailPanel from './FeatureDetailPanel'
 import CoordinateSearch from './CoordinateSearch'
 import DrawToolbar from './DrawToolbar'
@@ -61,6 +64,8 @@ export default function MapView() {
     areaSourceRef,
     featureWmsRef,
     heatmapRef,
+    poiSourceRef,
+    poiLayerRef,
   } = useMapInstance(containerRef)
 
   // 'Point' | 'LineString' | 'Polygon' | 'Analysis'
@@ -73,6 +78,12 @@ export default function MapView() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
   const [isHeatmapOn, setIsHeatmapOn] = useState(false)
+
+  // POI durumu: kategoriler (form için), kaydedilmeyi bekleyen çizim,
+  // bilgi paneli açık olan kayıt.
+  const [categories, setCategories] = useState([])
+  const [pendingPoi, setPendingPoi] = useState(null)
+  const [selectedPoi, setSelectedPoi] = useState(null)
 
   /**
    * Poligonu backend'e gönderip kesişen envanterleri sayar.
@@ -159,6 +170,40 @@ export default function MapView() {
     }
   }, [sourceRef])
 
+  // --- POI'leri ve kategorileri yükle ---
+  useEffect(() => {
+    let cancelled = false
+
+    Promise.all([fetchPois(), fetchCategories()])
+      .then(([pois, categoryList]) => {
+        if (cancelled) return
+
+        const source = poiSourceRef.current
+        source.clear()
+
+        for (const poi of pois) {
+          const feature = wktToFeature(poi.wkt)
+          feature.setId(`poi-${poi.id}`)
+          feature.set('name', poi.name)
+          // Bilgi panelinin göstereceği her şey feature'da dursun:
+          // panel açılırken sunucuya ikinci bir istek gerekmesin.
+          feature.set('poi', poi)
+          source.addFeature(feature)
+        }
+
+        setCategories(categoryList)
+      })
+      .catch((err) => {
+        if (!cancelled && err.response?.status !== 401) {
+          setError('POI kayıtları yüklenemedi.')
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [poiSourceRef])
+
   // --- Seçili araca göre Draw etkileşimini kur ---
   useEffect(() => {
     const map = mapRef.current
@@ -172,14 +217,22 @@ export default function MapView() {
     }
 
     // Kaydet penceresi açıkken yeni çizim başlatılmasın.
-    if (!activeTool || pending) return
+    if (!activeTool || pending || pendingPoi) return
 
     // Analiz aracı da poligon çizer, ama başka katmana ve kaydetmeden.
     const isAnalysis = activeTool === 'Analysis'
+    // POI de nokta çizer, ama kendi katmanına ve kendi formuyla.
+    const isPoi = activeTool === 'Poi'
+
+    const targetSource = isAnalysis
+      ? analysisSourceRef.current
+      : isPoi
+        ? poiSourceRef.current
+        : sourceRef.current
 
     const draw = new Draw({
-      source: isAnalysis ? analysisSourceRef.current : sourceRef.current,
-      type: isAnalysis ? 'Polygon' : activeTool,
+      source: targetSource,
+      type: isAnalysis ? 'Polygon' : isPoi ? 'Point' : activeTool,
     })
 
     draw.on('drawend', (event) => {
@@ -194,6 +247,14 @@ export default function MapView() {
         // yeni bir poligona başlanmasın.
         setActiveTool(null)
         runAnalysis(wkt, 'Envanter analizi')
+        return
+      }
+
+      if (isPoi) {
+        // POI kendi katmanında; WMS'le ilgisi yok, o yüzden 'interactive'
+        // işaretine de gerek yok - poiStyle zaten görünür çiziyor.
+        setPendingPoi({ feature: event.feature })
+        setActiveTool(null)
         return
       }
 
@@ -214,7 +275,7 @@ export default function MapView() {
       map.removeInteraction(draw)
       drawRef.current = null
     }
-  }, [activeTool, pending, runAnalysis, mapRef, sourceRef, analysisSourceRef])
+  }, [activeTool, pending, pendingPoi, runAnalysis, mapRef, sourceRef, analysisSourceRef, poiSourceRef])
 
   // --- Çizime tıklayınca silme penceresini aç ---
   useEffect(() => {
@@ -223,9 +284,20 @@ export default function MapView() {
 
     // Çizim yapılırken veya bir pencere açıkken seçim devre dışı;
     // yoksa çizim tıklaması aynı anda silme penceresini de açardı.
-    if (activeTool || pending || selected) return
+    if (activeTool || pending || pendingPoi || selected || selectedPoi) return
 
     function onClick(event) {
+      // POI'ye önce bakıyoruz: POI işareti çizimin üstünde duruyor, alttaki
+      // çizimi seçmek üstündekini tıklanamaz yapardı.
+      const poiFeature = map.forEachFeatureAtPixel(event.pixel, (f) => f, {
+        layerFilter: (layer) => layer === poiLayerRef.current,
+      })
+
+      if (poiFeature) {
+        setSelectedPoi(poiFeature.get('poi'))
+        return
+      }
+
       // layerFilter: sadece çizim katmanına bak. Olmasaydı arama işaretine
       // tıklamak üstündeki çizimi bulmayı engellerdi.
       const feature = map.forEachFeatureAtPixel(event.pixel, (f) => f, {
@@ -255,7 +327,8 @@ export default function MapView() {
     function onPointerMove(event) {
       if (event.dragging) return
       const overFeature = map.hasFeatureAtPixel(event.pixel, {
-        layerFilter: (layer) => layer === featureLayerRef.current,
+        layerFilter: (layer) =>
+          layer === featureLayerRef.current || layer === poiLayerRef.current,
       })
       element.style.cursor = overFeature ? 'pointer' : ''
     }
@@ -268,7 +341,7 @@ export default function MapView() {
       map.un('pointermove', onPointerMove)
       element.style.cursor = ''
     }
-  }, [activeTool, pending, selected, mapRef, featureLayerRef])
+  }, [activeTool, pending, pendingPoi, selected, selectedPoi, mapRef, featureLayerRef, poiLayerRef])
 
   // --- Seçili objenin geometrisini düzenlenebilir yap ---
   useEffect(() => {
@@ -345,6 +418,7 @@ export default function MapView() {
       }
       setActiveTool(null)
       setIsConfirmingDelete(false)
+      setSelectedPoi(null)
       // Geometri değişikliği varsa geri alınsın diye state'i fonksiyonel
       // güncelliyoruz; effect'in bağımlılığına selected eklemeye gerek kalmıyor.
       setSelected((current) => {
@@ -404,6 +478,33 @@ export default function MapView() {
     },
     [pending, runAnalysis, featureWmsRef, heatmapRef],
   )
+
+  /** POI formundan gelen bilgilerle kaydeder ve haritadaki işareti tamamlar. */
+  const handleSavePoi = useCallback(
+    async ({ name, categoryId, workingHours }) => {
+      const { feature } = pendingPoi
+      const wkt = geometryToWkt(feature.getGeometry())
+
+      const saved = await createPoi({ name, wkt, categoryId, workingHours })
+
+      feature.setId(`poi-${saved.id}`)
+      feature.set('name', saved.name)
+      feature.set('poi', saved)
+      setPendingPoi(null)
+
+      // Yoğunluk haritası noktaları sayıyor; POI eklenince tazelensin.
+      refreshWmsLayer(heatmapRef.current)
+    },
+    [pendingPoi, heatmapRef],
+  )
+
+  /** Vazgeçilirse haritaya konan geçici işaret kalkar. */
+  const handleCancelPoi = useCallback(() => {
+    if (pendingPoi) {
+      poiSourceRef.current.removeFeature(pendingPoi.feature)
+    }
+    setPendingPoi(null)
+  }, [pendingPoi, poiSourceRef])
 
   /**
    * Girilen enlem/boylama uçar ve orayı işaretler.
@@ -496,6 +597,20 @@ export default function MapView() {
         </p>
       )}
 
+      {pendingPoi && (
+        <SavePoiDialog
+          categories={categories}
+          onSave={handleSavePoi}
+          onCancel={handleCancelPoi}
+        />
+      )}
+
+      {/* POI bilgi paneli, çizim detay paneliyle aynı köşede duruyor;
+          ikisi aynı anda açılamıyor (tıklama biri açıkken devre dışı). */}
+      {selectedPoi && (
+        <PoiInfoPanel poi={selectedPoi} onClose={() => setSelectedPoi(null)} />
+      )}
+
       {pending && (
         <SaveFeatureDialog
           geometryType={pending.geometryType}
@@ -507,7 +622,7 @@ export default function MapView() {
       {/* Detay paneli açıkken analiz paneli gizleniyor: ikisi de sağ üstte
           duruyor ve üst üste binince alttakinin düğmelerine erişilemiyor.
           Sonuç state'te kalıyor, detay kapanınca panel geri geliyor. */}
-      {analysis && !selected && (
+      {analysis && !selected && !selectedPoi && (
         <AnalysisPanel
           title={analysis.title}
           isLoading={analysis.isLoading}

@@ -22,6 +22,8 @@ public static class DependencyInjection
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IRoleService, RoleService>();
         services.AddScoped<IGeoPermissionService, GeoPermissionService>();
+        services.AddScoped<IPoiService, PoiService>();
+        services.AddScoped<IPoiCategoryService, PoiCategoryService>();
         services.AddScoped<IDatabaseInitializer, DatabaseInitializer>();
         services.AddGeoServerClient();
         return services;

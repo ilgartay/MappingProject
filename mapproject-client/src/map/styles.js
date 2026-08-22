@@ -1,4 +1,4 @@
-import { Circle, Fill, Stroke, Style } from 'ol/style'
+import { Circle, Fill, RegularShape, Stroke, Style, Text } from 'ol/style'
 
 /** Renk bilgisi gelmezse kullanılacak yedek. */
 const FALLBACK_COLOR = '#009bff'
@@ -71,6 +71,33 @@ export function featureStyle(feature) {
     default:
       return undefined
   }
+}
+
+/**
+ * POI işareti.
+ *
+ * Çizimlerden ayrışması gerekiyor: çizimler kullanıcının kendi kayıtları,
+ * POI'ler ise herkesin gördüğü ortak veri. Bu yüzden hem farklı renk hem
+ * de farklı şekil (kare) kullanıyoruz - renk körü biri için de ayırt
+ * edilebilir kalsın.
+ */
+export function poiStyle(feature) {
+  return new Style({
+    image: new RegularShape({
+      points: 4,
+      radius: 8,
+      angle: Math.PI / 4,
+      fill: new Fill({ color: '#e11d48' }),
+      stroke: new Stroke({ color: '#ffffff', width: 2 }),
+    }),
+    text: new Text({
+      text: feature.get('name') ?? '',
+      font: '600 12px system-ui, sans-serif',
+      offsetY: -16,
+      fill: new Fill({ color: '#881337' }),
+      stroke: new Stroke({ color: '#ffffff', width: 3 }),
+    }),
+  })
 }
 
 /**
