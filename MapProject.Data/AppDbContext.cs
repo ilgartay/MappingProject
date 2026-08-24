@@ -129,8 +129,12 @@ public class AppDbContext : DbContext
             entity.Property(g => g.Name).HasColumnName("name").HasMaxLength(100).IsRequired();
             entity.Property(g => g.Color).HasColumnName("color").HasMaxLength(7)
                 .IsRequired().HasDefaultValue("#009bff");
+            // Polygon değil Geometry: alan tek parça da olabilir, hazır
+            // bölgelerden birkaçı seçilince çok parçalı da. Tip kontrolünü
+            // WktParser.ParseArea yapıyor - veritabanı yalnızca SRID'yi
+            // zorluyor.
             entity.Property(g => g.Geometry).HasColumnName("geom")
-                .HasColumnType("geometry(Polygon,4326)");
+                .HasColumnType("geometry(Geometry,4326)");
             entity.Property(g => g.UserId).HasColumnName("user_id");
             entity.Property(g => g.RoleId).HasColumnName("role_id");
             entity.Property(g => g.InsertedUserId).HasColumnName("inserted_user_id");

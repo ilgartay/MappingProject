@@ -31,16 +31,7 @@ public static class WktParser
     public static TGeometry Parse<TGeometry>(string wkt, string expectedType)
         where TGeometry : Geometry
     {
-        Geometry parsed;
-
-        try
-        {
-            parsed = new WKTReader(GeometryServices).Read(wkt);
-        }
-        catch (Exception ex)
-        {
-            throw new InvalidGeometryException($"WKT okunamadı: {ex.Message}");
-        }
+        var parsed = Read(wkt);
 
         if (parsed is not TGeometry typed)
         {
@@ -62,5 +53,55 @@ public static class WktParser
         // WKTReader factory'den SRID'yi alır, yine de garantiye alıyoruz.
         typed.SRID = DatabaseSrid;
         return typed;
+    }
+
+    /// <summary>
+    /// Coğrafi yetki alanı için: tek parça (POLYGON) ya da birden çok
+    /// parça (MULTIPOLYGON) kabul edilir.
+    ///
+    /// Neden iki tip: yönetici alanı ya haritaya elle çizer - o zaman tek
+    /// poligon - ya da hazır bölgelerden birkaçını işaretler.
+    /// </summary>
+    public static Geometry ParseArea(string wkt)
+    {
+        var parsed = Read(wkt);
+
+        if (parsed is not (Polygon or MultiPolygon))
+        {
+            throw new InvalidGeometryException(
+                $"Alan POLYGON ya da MULTIPOLYGON olmalı, gelen: {parsed.GeometryType}.");
+        }
+
+        if (parsed.IsEmpty)
+        {
+            throw new InvalidGeometryException("Alan boş olamaz.");
+        }
+
+        // Geçerlilik kontrolünden ÖNCE birleştiriyoruz. Sebebi: yan yana
+        // iki bölge seçildiğinde parçalar ortak bir kenar paylaşıyor ve
+        // MULTIPOLYGON kuralları bunu "kendini kesen" sayıp geçersiz
+        // buluyor. Union ortak kenarı eritip komşu parçaları tek poligona
+        // dönüştürüyor; değmeyen parçalar ayrı kalmaya devam ediyor.
+        var area = parsed.Union();
+
+        if (!area.IsValid)
+        {
+            throw new InvalidGeometryException("Alan geçersiz (ör. kendini kesen poligon).");
+        }
+
+        area.SRID = DatabaseSrid;
+        return area;
+    }
+
+    private static Geometry Read(string wkt)
+    {
+        try
+        {
+            return new WKTReader(GeometryServices).Read(wkt);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidGeometryException($"WKT okunamadı: {ex.Message}");
+        }
     }
 }

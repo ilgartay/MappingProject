@@ -100,13 +100,13 @@ public class GeoPermissionService : IGeoPermissionService
             return null;
         }
 
-        var polygon = WktParser.Parse<Polygon>(dto.Wkt, "POLYGON");
+        var area = WktParser.ParseArea(dto.Wkt);
 
         if (entity is null)
         {
             entity = new GeoPermission
             {
-                Geometry = polygon,
+                Geometry = area,
                 UserId = userId,
                 RoleId = roleId,
                 InsertedUserId = currentUserId,
@@ -117,7 +117,7 @@ public class GeoPermissionService : IGeoPermissionService
         }
         else
         {
-            entity.Geometry = polygon;
+            entity.Geometry = area;
         }
 
         entity.Name = dto.Name.Trim();

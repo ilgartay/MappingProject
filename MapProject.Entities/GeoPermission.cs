@@ -20,8 +20,12 @@ public class GeoPermission : ITrackable
     /// <summary>ITrackable gereği; coğrafi yetkinin rengi anlamsız, kullanılmıyor.</summary>
     public string Color { get; set; } = "#009bff";
 
-    /// <summary>EPSG:4326 poligon.</summary>
-    public required Polygon Geometry { get; set; }
+    /// <summary>
+    /// EPSG:4326 alan. POLYGON ya da MULTIPOLYGON olabilir: elle çizilen
+    /// alan tek parçadır, hazır bölgelerden birkaçı seçildiğinde ise
+    /// birbirine değmeyen parçalar oluşur.
+    /// </summary>
+    public required Geometry Geometry { get; set; }
 
     public int? UserId { get; set; }
     public User? User { get; set; }

@@ -80,3 +80,51 @@
   background: rgba(255, 255, 255, 0.9);
   color: var(--text);
 }
+
+/* --- Hazır bölge seçimi --- */
+
+.geo-dialog__regions {
+  margin-bottom: 12px;
+}
+
+.geo-dialog__regions-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.geo-dialog__region-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.geo-region {
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #fff;
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.geo-region:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+
+/* Seçili bölge haritadaki alanla aynı mavi; hangi düğmenin haritada
+   neye karşılık geldiği renkten anlaşılsın. */
+.geo-region--on {
+  border-color: var(--brand);
+  background: var(--brand);
+  color: #fff;
+}
+
+.geo-region--on:hover {
+  color: #fff;
+}

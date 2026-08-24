@@ -13,6 +13,7 @@ import 'ol/ol.css'
 import { fetchGeoArea, saveGeoArea } from '../../api/admin'
 import { geometryToWkt, wktToFeature } from '../../map/wkt'
 import { TURKEY_CENTER, TURKEY_EXTENT } from '../../map/turkey'
+import { TURKEY_REGIONS, regionsToWkt } from '../../map/regions'
 import './GeoAreaDialog.css'
 
 const AREA_STYLE = new Style({
@@ -33,6 +34,10 @@ export default function GeoAreaDialog({ target, onClose }) {
 
   const [name, setName] = useState('')
   const [hasArea, setHasArea] = useState(false)
+
+  // Seçili bölge kimlikleri. Elle çizim yapılınca boşalıyor: bir alan ya
+  // hazır bölgelerden ya da elle çizimden gelir, ikisi karışmaz.
+  const [regionIds, setRegionIds] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState('')
@@ -66,7 +71,10 @@ export default function GeoAreaDialog({ target, onClose }) {
     // Tek alan tanımlıyoruz: yeni poligon eskisinin yerini alsın.
     const draw = new Draw({ source, type: 'Polygon' })
 
-    draw.on('drawstart', () => source.clear())
+    draw.on('drawstart', () => {
+      source.clear()
+      setRegionIds([])
+    })
     draw.on('drawend', () => setHasArea(true))
 
     map.addInteraction(draw)
@@ -105,7 +113,31 @@ export default function GeoAreaDialog({ target, onClose }) {
 
   const handleClear = useCallback(() => {
     sourceRef.current.clear()
+    setRegionIds([])
     setHasArea(false)
+  }, [])
+
+  /**
+   * Bölge düğmesine basıldığında seçimi açar/kapatır ve haritayı
+   * yeniden çizer. Haritadaki şekil her zaman seçimin tamamını
+   * gösteriyor - tek tek eklemek yerine baştan kuruyoruz, böylece
+   * seçim kaldırıldığında da doğru sonuç çıkıyor.
+   */
+  const toggleRegion = useCallback((id) => {
+    setRegionIds((current) => {
+      const next = current.includes(id)
+        ? current.filter((r) => r !== id)
+        : [...current, id]
+
+      const source = sourceRef.current
+      source.clear()
+
+      const wkt = regionsToWkt(next)
+      if (wkt) source.addFeature(wktToFeature(wkt))
+
+      setHasArea(Boolean(wkt))
+      return next
+    })
   }, [])
 
   async function handleSave() {
@@ -155,14 +187,37 @@ export default function GeoAreaDialog({ target, onClose }) {
           />
         </div>
 
+        <div className="geo-dialog__regions">
+          <span className="geo-dialog__regions-label">Hazır bölgeler</span>
+          <div className="geo-dialog__region-buttons" role="group" aria-label="Coğrafi bölgeler">
+            {TURKEY_REGIONS.map((region) => {
+              const isOn = regionIds.includes(region.id)
+
+              return (
+                <button
+                  key={region.id}
+                  type="button"
+                  className={isOn ? 'geo-region geo-region--on' : 'geo-region'}
+                  aria-pressed={isOn}
+                  onClick={() => toggleRegion(region.id)}
+                >
+                  {region.name}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
         <div className="geo-dialog__map" ref={containerRef}>
           {isLoading && <p className="geo-dialog__loading">Yükleniyor…</p>}
         </div>
 
         <p className="geo-dialog__hint">
-          {hasArea
-            ? 'Tanımlı alan haritada mavi ile gösteriliyor. Yeni bir poligon çizerseniz eskisinin yerini alır.'
-            : 'Köşeleri tıklayın, çift tıklayarak alanı kapatın.'}
+          {regionIds.length > 0
+            ? `${regionIds.length} bölge seçili. Birden çok bölge seçebilirsiniz; haritaya çizim yaparsanız seçim kalkar.`
+            : hasArea
+              ? 'Tanımlı alan haritada mavi ile gösteriliyor. Yeni bir poligon çizerseniz eskisinin yerini alır.'
+              : 'Yukarıdan hazır bölge seçin ya da köşeleri tıklayıp çift tıklayarak kendi alanınızı çizin.'}
         </p>
 
         {error && <p className="admin-error">{error}</p>}
