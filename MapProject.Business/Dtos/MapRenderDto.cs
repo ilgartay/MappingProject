@@ -7,7 +7,10 @@ public enum MapLayerSet
     Features,
 
     /// <summary>Noktaların yoğunluğundan üretilen ısı haritası.</summary>
-    Heatmap
+    Heatmap,
+
+    /// <summary>İlgi noktaları, kategorisine göre farklı ikonlarla.</summary>
+    Poi
 }
 
 /// <summary>

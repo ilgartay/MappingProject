@@ -22,6 +22,9 @@ public class AppDbContext : DbContext
     public DbSet<GeoPermission> GeoPermissions { get; set; } = null!;
     public DbSet<PoiCategory> PoiCategories { get; set; } = null!;
     public DbSet<Poi> Pois { get; set; } = null!;
+    public DbSet<Province> Provinces { get; set; } = null!;
+    public DbSet<Route> Routes { get; set; } = null!;
+    public DbSet<Stop> Stops { get; set; } = null!;
 
     /// <summary>
     /// Değişen kayıtlara modified_date damgası vurur.
@@ -157,6 +160,68 @@ public class AppDbContext : DbContext
                 "(user_id IS NOT NULL AND role_id IS NULL) OR (user_id IS NULL AND role_id IS NOT NULL)"));
 
             entity.HasQueryFilter(g => !g.IsDeleted);
+        });
+
+        modelBuilder.Entity<Route>(entity =>
+        {
+            entity.ToTable("guzergah");
+            entity.Property(r => r.Id).HasColumnName("id");
+            entity.Property(r => r.Name).HasColumnName("ad").HasMaxLength(100).IsRequired();
+            entity.Property(r => r.Color).HasColumnName("renk").HasMaxLength(7)
+                .IsRequired().HasDefaultValue("#2563eb");
+            entity.Property(r => r.CreatedDate).HasColumnName("created_date");
+            entity.Property(r => r.ModifiedDate).HasColumnName("modified_date");
+            entity.Property(r => r.IsDeleted).HasColumnName("is_deleted").HasDefaultValue(false);
+            entity.Property(r => r.IsActive).HasColumnName("is_active").HasDefaultValue(true);
+
+            // Aynı adda iki güzergah karışıklık yaratır; silinmişler
+            // indekste yer tutmasın diye kısmi indeks (kategorilerdeki
+            // aynı gerekçe: soft delete edilen ad yeniden kullanılabilsin).
+            entity.HasIndex(r => r.Name).IsUnique().HasFilter("is_deleted = false");
+
+            entity.HasQueryFilter(r => !r.IsDeleted);
+        });
+
+        modelBuilder.Entity<Stop>(entity =>
+        {
+            entity.ToTable("durak");
+            entity.Property(s => s.Id).HasColumnName("id");
+            entity.Property(s => s.Name).HasColumnName("ad").HasMaxLength(100).IsRequired();
+            entity.Property(s => s.RouteId).HasColumnName("guzergah_id");
+            entity.Property(s => s.Order).HasColumnName("sira");
+            entity.Property(s => s.Geometry).HasColumnName("geom")
+                .HasColumnType("geometry(Point,4326)");
+            entity.Property(s => s.CreatedDate).HasColumnName("created_date");
+            entity.Property(s => s.ModifiedDate).HasColumnName("modified_date");
+            entity.Property(s => s.IsDeleted).HasColumnName("is_deleted").HasDefaultValue(false);
+            entity.Property(s => s.IsActive).HasColumnName("is_active").HasDefaultValue(true);
+
+            // 1-N. Restrict: güzergah silinince durakları sessizce yok
+            // olmasın, önce ne yapılacağına karar verilsin.
+            entity.HasOne(s => s.Route)
+                .WithMany(r => r.Stops)
+                .HasForeignKey(s => s.RouteId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Güzergahın durakları her zaman sıraya göre okunuyor.
+            entity.HasIndex(s => new { s.RouteId, s.Order });
+
+            // Route'ta sorgu filtresi var; burada da olmazsa silinmiş
+            // güzergaha bağlı duraklar sorgularda görünür.
+            entity.HasQueryFilter(s => !s.IsDeleted && !s.Route.IsDeleted);
+        });
+
+        modelBuilder.Entity<Province>(entity =>
+        {
+            entity.ToTable("il");
+            entity.Property(p => p.Id).HasColumnName("id");
+            entity.Property(p => p.Name).HasColumnName("ad").HasMaxLength(50).IsRequired();
+            // Voronoi kırpması bazı illeri çok parçalı bırakıyor (adalar,
+            // kıyı girintileri), o yüzden tip Geometry.
+            entity.Property(p => p.Geometry).HasColumnName("geom")
+                .HasColumnType("geometry(Geometry,4326)");
+
+            entity.HasIndex(p => p.Name).IsUnique();
         });
 
         modelBuilder.Entity<PoiCategory>(entity =>

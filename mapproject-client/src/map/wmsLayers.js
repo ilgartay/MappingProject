@@ -58,6 +58,22 @@ export function createFeatureWmsLayer() {
   return createWmsLayer('/api/Map/features')
 }
 
+/**
+ * İlgi noktaları. Görünüm GeoServer'da: her kategorinin kendi SLD'si var,
+ * isimler de belirli bir yakınlıktan sonra sunucuda basılıyor.
+ */
+export function createPoiWmsLayer() {
+  return createWmsLayer('/api/Map/poi')
+}
+
+/**
+ * Konum analizinin ağırlıklı ısı haritası; analiz başlatılana kadar gizli.
+ * Kriterler ve hedef bölge, katmanın parametreleri olarak gidiyor.
+ */
+export function createLocationAnalysisLayer() {
+  return createWmsLayer('/api/Map/location-analysis', { visible: false })
+}
+
 /** Nokta yoğunluğundan üretilen ısı haritası; açılana kadar gizli. */
 export function createHeatmapLayer() {
   return createWmsLayer('/api/Map/heatmap', { visible: false })

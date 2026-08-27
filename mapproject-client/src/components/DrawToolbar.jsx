@@ -108,6 +108,10 @@ export default function DrawToolbar({
   canDelete,
   isHeatmapOn,
   onToggleHeatmap,
+  isLocationOpen,
+  onToggleLocation,
+  isRoutePanelOpen,
+  onToggleRoutePanel,
 }) {
   const { hasPermission } = useAuth()
 
@@ -116,6 +120,9 @@ export default function DrawToolbar({
   const visibleTools = TOOLS.filter((tool) => hasPermission(tool.permission))
   const canAnalyze = hasPermission(ANALYSIS_TOOL.permission)
   const canHeatmap = hasPermission(HEATMAP_TOOL.permission)
+  // Ulaşım paneli okuma için herkese açık; içindeki düzenleme düğmeleri
+  // ayrıca route.manage / stop.manage yetkisine bakıyor.
+  const canAddStop = hasPermission('stop.manage')
 
   const active =
     [...TOOLS, ANALYSIS_TOOL].find((tool) => tool.type === activeTool) ?? null
@@ -170,8 +177,61 @@ export default function DrawToolbar({
           </button>
         )}
 
-        {visibleTools.length === 0 && !canAnalyze && !canHeatmap && (
-          <span className="draw-toolbar__readonly">Görüntüleme yetkisi</span>
+        {canAddStop && (
+          <button
+            type="button"
+            className={`draw-tool ${activeTool === 'Stop' ? 'draw-tool--active' : ''}`.trim()}
+            aria-pressed={activeTool === 'Stop'}
+            aria-label="Durak Ekle"
+            disabled={disabled}
+            onClick={() => onSelect(activeTool === 'Stop' ? null : 'Stop')}
+          >
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="5" y="4" width="14" height="12" rx="2" />
+              <path d="M5 10h14M8 20v-4M16 20v-4" />
+              <circle cx="8.5" cy="13" r="1" fill="currentColor" stroke="none" />
+              <circle cx="15.5" cy="13" r="1" fill="currentColor" stroke="none" />
+            </svg>
+            <span className="draw-tool__label">Durak Ekle</span>
+            <span className="draw-tool__label-short">Durak</span>
+          </button>
+        )}
+
+        <button
+          type="button"
+          className={`draw-tool draw-tool--analysis ${isRoutePanelOpen ? 'draw-tool--active' : ''}`.trim()}
+          aria-pressed={isRoutePanelOpen}
+          aria-label="Güzergah Yönetimi"
+          onClick={onToggleRoutePanel}
+        >
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="6" cy="6" r="2.5" />
+            <circle cx="18" cy="18" r="2.5" />
+            <path d="M6 8.5v4a3 3 0 0 0 3 3h3a3 3 0 0 1 3 3v0" />
+          </svg>
+          <span className="draw-tool__label">Güzergah Yönetimi</span>
+          <span className="draw-tool__label-short">Güzergah</span>
+        </button>
+
+        {/* Konum analizi yetki istemiyor: Kullanıcı rolü de erişebilmeli.
+            Bu yüzden hiçbir aracı olmayan kullanıcıda bile görünüyor. */}
+        <button
+          type="button"
+          className={`draw-tool draw-tool--analysis ${isLocationOpen ? 'draw-tool--active' : ''}`.trim()}
+          aria-pressed={isLocationOpen}
+          aria-label="Konum Analizi"
+          onClick={onToggleLocation}
+        >
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11Z" />
+            <path d="M9.2 10.5h5.6M12 7.7v5.6" />
+          </svg>
+          <span className="draw-tool__label">Konum Analizi</span>
+          <span className="draw-tool__label-short">Konum</span>
+        </button>
+
+        {visibleTools.length === 0 && !canAnalyze && !canHeatmap && !canAddStop && (
+          <span className="draw-toolbar__readonly">Çizim yetkisi yok</span>
         )}
       </div>
 

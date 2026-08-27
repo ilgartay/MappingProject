@@ -69,9 +69,34 @@ POI'ler kullanıcıya özel değil: bir eczanenin konumu herkes için aynı bilg
 Bu yüzden `vw_poi` okunurken sahiplik filtresi eklenmiyor; `user_id` yalnızca
 "kim ekledi" bilgisi olarak taşınıyor ve admin panelinde gösteriliyor.
 
-POI'ler haritada WMS ile değil **vektör** olarak çiziliyor. Gerekçesi bir
-önceki bölümdeki ayrımın aynısı: her POI'ye tıklanıp bilgi paneli açılması
-gerekiyor, resim üzerinde bu mümkün değil.
+### POI stilleri ve zoom'a bağlı etiket
+
+POI'ler de çizimler gibi WMS ile gösteriliyor; vektör katmanı saydam
+kalıp yalnızca tıklamayı taşıyor.
+
+Her kategorinin **kendi SLD'si** var: `poi_yeme_icme` turuncu daire,
+`poi_konaklama` mavi kare, `poi_saglik` kırmızı artı. Filtre `kategori_yolu`
+üzerinden çalıştığı için alt kategoriler üst kategorisinin görünümünü
+alıyor ("Yeme-İçme → Restoran" da turuncu daire).
+
+Bunları tek resimde birleştirmek için WMS isteği **aynı katmanı her stil
+için bir kez** istiyor:
+
+```
+layers=vw_poi,vw_poi,vw_poi,vw_poi
+styles=poi_diger,poi_konaklama,poi_yeme_icme,poi_saglik
+```
+
+Kategoriler yöneticinin ekleyebildiği dinamik bir ağaç olduğu için
+`poi_diger` yedek stili var: "bilinen kategorilerin hiçbiri değil"
+filtresiyle çalışıyor, yeni bir kategori eklendiğinde POI'leri kaybolmuyor,
+gri üçgen olarak çıkıyor. Kendi görünümünü isteyen kategori için SLD
+yazılıp adı `appsettings.json` içindeki `PoiStyles` listesine eklenmeli.
+
+İsim etiketleri `<MaxScaleDenominator>2000000</MaxScaleDenominator>` ile
+yalnızca yakınlaşınca çiziliyor. Türkiye geneli görüntü ~1:4.5M olduğu
+için açılışta etiket yok; iki kademe yakınlaşınca isimler beliriyor.
+Bu sınır olmasaydı ülke ölçeğinde yüzlerce isim üst üste binerdi.
 
 ## Isı haritası
 
@@ -213,3 +238,61 @@ curl -s -G "http://localhost:8080/geoserver/mapproject/wms" \
   --data-urlencode "width=400" --data-urlencode "height=300" \
   --data-urlencode "format=image/png" -o nokta.png
 ```
+
+
+## Konum analizi
+
+Kullanıcı bir hedef bölge (il listesinden ya da haritaya çizerek) ve 2-5
+kategori kriteri seçiyor; her kritere 100 üzerinden puan veriyor. Toplam
+tam 100 değilse analiz başlamıyor - kural hem arayüzde hem sunucuda
+(`LocationCriteria.Parse`).
+
+### Ağırlık nasıl uygulanıyor
+
+`vw_poi_agirlikli` **parametreli** bir SQL View. Kriterler GeoServer'a
+`viewparams` olarak geçiyor:
+
+```
+viewparams=k1:6;a1:60;k2:18;a2:40
+```
+
+View bunları bir `CASE kategori_id WHEN %k1% THEN %a1% ... ELSE 0 END`
+ifadesine koyup her POI'ye kendi kategorisinin puanını `agirlik`
+kolonunda veriyor. Isı haritası SLD'si de `weightAttr=agirlik` diyerek
+noktaları eşit saymıyor: puanı yüksek kategori haritayı daha çok ısıtıyor.
+
+Parametreler GeoServer'da `^-?[0-9]+$` ile doğrulanıyor, yani tamsayı
+dışında bir şey SQL'e giremiyor.
+
+Alan kısıtı ve seçilmeyen kategorilerin elenmesi CQL ile:
+
+```
+cql_txt: agirlik > 0 AND INTERSECTS(geom, <alan WKT>)
+```
+
+### İl sınırları
+
+`il` tablosundaki 81 sınır **yaklaşıktır**: gerçek idari sınır verisi
+elimizde olmadığı için il merkezlerinden Voronoi hücreleri üretilip
+Türkiye sınırıyla kırpıldı (`scripts/seed-province.sql`). Her nokta
+kendisine en yakın alanı alıyor; küçük iller olduğundan geniş, büyük
+iller olduğundan dar çıkıyor. Analiz alanı seçmek için yeterli.
+
+### Örnek veri
+
+`scripts/seed-poi-demo.py` 30 şehre yayılmış ~1900 POI üretiyor.
+Kategorilerin şehir dağılımı bilerek farklı (konaklama turizm
+şehirlerinde, üniversite öğrenci şehirlerinde): hepsi her yerde aynı
+yoğunlukta olsaydı kullanıcı ağırlıkları değiştirdiğinde ısı haritası
+değişmezdi, çünkü normalize edilmiş yoğunluk aynı çıkardı.
+
+```bash
+python3 scripts/seed-poi-demo.py | psql -d mapdb
+```
+
+### Katman sırası
+
+Analiz ısı haritası POI işaretlerinin **üstünde** duruyor ve analiz
+açıkken POI katmanının opaklığı düşürülüyor. Altta dururken işaretler ve
+beyaz konturlu etiketleri tam ısının yoğunlaştığı yere yığılıp sonucu
+kapatıyordu - ısı zaten POI'lerin olduğu yerde çıkıyor.

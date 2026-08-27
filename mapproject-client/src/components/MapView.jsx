@@ -3,6 +3,7 @@ import Draw from 'ol/interaction/Draw'
 import Modify from 'ol/interaction/Modify'
 import Collection from 'ol/Collection'
 import Feature from 'ol/Feature'
+import LineString from 'ol/geom/LineString'
 import Point from 'ol/geom/Point'
 import { fromLonLat } from 'ol/proj'
 
@@ -15,14 +16,29 @@ import {
 } from '../api/features'
 import { analyzeIntersection } from '../api/analysis'
 import { createPoi, deletePoi, fetchCategories, fetchPois } from '../api/poi'
+import { criteriaToParam, fetchProvince, fetchProvinces, validateAnalysis } from '../api/location'
+import {
+  createRoute,
+  createStop,
+  deleteRoute,
+  deleteStop,
+  fetchRoutes,
+  reorderStops,
+  updateRoute,
+} from '../api/transport'
 import { useAuth } from '../auth/useAuth'
 import { useMapInstance } from '../map/useMapInstance'
 import { geometryToWkt, wktToFeature } from '../map/wkt'
 import { refreshWmsLayer } from '../map/wmsLayers'
 import AnalysisPanel from './AnalysisPanel'
 import HeatmapLegend from './HeatmapLegend'
+import LocationAnalysisPanel from './LocationAnalysisPanel'
+import RoutePanel from './RoutePanel'
+import SaveStopDialog from './SaveStopDialog'
+import StopInfoPanel from './StopInfoPanel'
 import DeletePoiDialog from './DeletePoiDialog'
 import PoiInfoPanel from './PoiInfoPanel'
+import PoiSearch from './PoiSearch'
 import SavePoiDialog from './SavePoiDialog'
 import FeatureDetailPanel from './FeatureDetailPanel'
 import CoordinateSearch from './CoordinateSearch'
@@ -65,6 +81,12 @@ export default function MapView() {
     areaSourceRef,
     featureWmsRef,
     heatmapRef,
+    locationAnalysisRef,
+    locationAreaSourceRef,
+    routeLineSourceRef,
+    stopSourceRef,
+    stopLayerRef,
+    poiWmsRef,
     poiSourceRef,
     poiLayerRef,
   } = useMapInstance(containerRef)
@@ -83,6 +105,29 @@ export default function MapView() {
   // POI durumu: kategoriler (form için), kaydedilmeyi bekleyen çizim,
   // bilgi paneli açık olan kayıt.
   const [categories, setCategories] = useState([])
+  // Arama barı bu listenin üstünde çalışıyor; POI'ler zaten tek istekte
+  // geldiği için ayrıca sunucuya sormaya gerek yok.
+  const [pois, setPois] = useState([])
+
+  // --- Konum analizi ---
+  const [isLocationOpen, setIsLocationOpen] = useState(false)
+  const [provinces, setProvinces] = useState([])
+  const [provinceId, setProvinceId] = useState(null)
+  const [areaWkt, setAreaWkt] = useState(null)
+  const [criteria, setCriteria] = useState([
+    { categoryId: '', weight: 50 },
+    { categoryId: '', weight: 50 },
+  ])
+  const [isAnalysisOn, setIsAnalysisOn] = useState(false)
+  const [locationError, setLocationError] = useState('')
+
+  // --- Ulaşım modülü ---
+  const [isRoutePanelOpen, setIsRoutePanelOpen] = useState(false)
+  const [routes, setRoutes] = useState([])
+  const [selectedRouteId, setSelectedRouteId] = useState(null)
+  const [pendingStop, setPendingStop] = useState(null)
+  const [selectedStop, setSelectedStop] = useState(null)
+  const [transportError, setTransportError] = useState('')
   const [pendingPoi, setPendingPoi] = useState(null)
   const [selectedPoi, setSelectedPoi] = useState(null)
   const [isConfirmingPoiDelete, setIsConfirmingPoiDelete] = useState(false)
@@ -193,6 +238,7 @@ export default function MapView() {
           source.addFeature(feature)
         }
 
+        setPois(pois)
         setCategories(categoryList)
       })
       .catch((err) => {
@@ -205,6 +251,127 @@ export default function MapView() {
       cancelled = true
     }
   }, [poiSourceRef])
+
+  /**
+   * Güzergahları haritaya çizer: her durak kendi hattının renginde ve
+   * sıra numarasıyla, duraklar da sırayla bir çizgiyle birleştirilmiş.
+   *
+   * Kaynakları her seferinde baştan kuruyoruz. Tek tek eklemek/çıkarmak
+   * yerine bu, çünkü sıralama değişince zaten hepsinin yeniden çizilmesi
+   * gerekiyor - ayrıca "hangisi değişti" hesabı tutmak gereksiz.
+   */
+  const drawRoutes = useCallback(
+    (routeList) => {
+      const stopSource = stopSourceRef.current
+      const lineSource = routeLineSourceRef.current
+      if (!stopSource || !lineSource) return
+
+      stopSource.clear()
+      lineSource.clear()
+
+      for (const route of routeList) {
+        const coordinates = []
+
+        for (const stop of route.stops) {
+          const feature = wktToFeature(stop.wkt)
+          feature.setId(`stop-${stop.id}`)
+          feature.set('order', stop.order)
+          feature.set('routeColor', route.color)
+          // Bilgi kutusunun göstereceği her şey feature'da dursun:
+          // tıklanınca sunucuya ikinci bir istek gerekmesin.
+          feature.set('stop', stop)
+          stopSource.addFeature(feature)
+
+          coordinates.push(feature.getGeometry().getCoordinates())
+        }
+
+        // İki durak yoksa çizilecek hat da yok.
+        if (coordinates.length > 1) {
+          const line = new Feature(new LineString(coordinates))
+          line.set('routeColor', route.color)
+          lineSource.addFeature(line)
+        }
+      }
+    },
+    [stopSourceRef, routeLineSourceRef],
+  )
+
+  const loadRoutes = useCallback(() => {
+    return fetchRoutes().then((list) => {
+      setRoutes(list)
+      drawRoutes(list)
+      return list
+    })
+  }, [drawRoutes])
+
+  // --- Güzergahları yükle ---
+  useEffect(() => {
+    let cancelled = false
+
+    fetchRoutes()
+      .then((list) => {
+        if (cancelled) return
+        setRoutes(list)
+        drawRoutes(list)
+      })
+      .catch((err) => {
+        if (!cancelled && err.response?.status !== 401) {
+          setTransportError('Güzergahlar yüklenemedi.')
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [drawRoutes])
+
+  // --- İl listesini yükle ---
+  useEffect(() => {
+    let cancelled = false
+
+    fetchProvinces()
+      .then((list) => {
+        if (!cancelled) setProvinces(list)
+      })
+      .catch((err) => {
+        if (!cancelled && err.response?.status !== 401) {
+          setLocationError('İl listesi yüklenemedi.')
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // --- Seçilen ilin sınırını haritada göster ---
+  useEffect(() => {
+    const source = locationAreaSourceRef.current
+    if (!source) return
+
+    // İl seçimi haritaya çizilen alanın yerini alıyor: hedef bölge tek.
+    if (provinceId === null) return
+
+    let cancelled = false
+
+    fetchProvince(provinceId)
+      .then((province) => {
+        if (cancelled || !province?.wkt) return
+
+        source.clear()
+        source.addFeature(wktToFeature(province.wkt))
+        setAreaWkt(null)
+      })
+      .catch((err) => {
+        if (!cancelled && err.response?.status !== 401) {
+          setLocationError('İl sınırı okunamadı.')
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [provinceId, locationAreaSourceRef])
 
   // --- Seçili araca göre Draw etkileşimini kur ---
   useEffect(() => {
@@ -225,20 +392,48 @@ export default function MapView() {
     const isAnalysis = activeTool === 'Analysis'
     // POI de nokta çizer, ama kendi katmanına ve kendi formuyla.
     const isPoi = activeTool === 'Poi'
+    // Konum analizinin hedef bölgesi de poligon; kendi katmanına gidiyor.
+    const isLocationArea = activeTool === 'LocationArea'
+    // Durak nokta çiziyor ama hiçbir kaynağa eklenmiyor: kayıt bitince
+    // zaten güzergahlar sunucudan tazelenip haritaya yeniden çiziliyor.
+    const isStop = activeTool === 'Stop'
 
     const targetSource = isAnalysis
       ? analysisSourceRef.current
       : isPoi
         ? poiSourceRef.current
-        : sourceRef.current
+        : isLocationArea
+          ? locationAreaSourceRef.current
+          : sourceRef.current
 
-    const draw = new Draw({
-      source: targetSource,
-      type: isAnalysis ? 'Polygon' : isPoi ? 'Point' : activeTool,
-    })
+    const draw = isStop
+      ? new Draw({ type: 'Point' })
+      : new Draw({
+          source: targetSource,
+          type: isAnalysis || isLocationArea ? 'Polygon' : isPoi ? 'Point' : activeTool,
+        })
+
+    if (isLocationArea) {
+      // Tek hedef bölge: yeni çizim eskisinin yerini alsın.
+      draw.on('drawstart', () => locationAreaSourceRef.current.clear())
+    }
 
     draw.on('drawend', (event) => {
       const wkt = geometryToWkt(event.feature.getGeometry())
+
+      if (isStop) {
+        setPendingStop({ wkt })
+        setActiveTool(null)
+        return
+      }
+
+      if (isLocationArea) {
+        // İl seçimiyle çizim birbirinin yerini alıyor; hedef bölge tek.
+        setProvinceId(null)
+        setAreaWkt(wkt)
+        setActiveTool(null)
+        return
+      }
 
       if (isAnalysis) {
         // Draw, yeni feature'ı bu olaydan SONRA source'a ekliyor;
@@ -277,7 +472,17 @@ export default function MapView() {
       map.removeInteraction(draw)
       drawRef.current = null
     }
-  }, [activeTool, pending, pendingPoi, runAnalysis, mapRef, sourceRef, analysisSourceRef, poiSourceRef])
+  }, [
+    activeTool,
+    pending,
+    pendingPoi,
+    runAnalysis,
+    mapRef,
+    sourceRef,
+    analysisSourceRef,
+    poiSourceRef,
+    locationAreaSourceRef,
+  ])
 
   // --- Çizime tıklayınca silme penceresini aç ---
   useEffect(() => {
@@ -286,9 +491,20 @@ export default function MapView() {
 
     // Çizim yapılırken veya bir pencere açıkken seçim devre dışı;
     // yoksa çizim tıklaması aynı anda silme penceresini de açardı.
-    if (activeTool || pending || pendingPoi || selected || selectedPoi) return
+    if (activeTool || pending || pendingPoi || selected || selectedPoi || selectedStop) return
 
     function onClick(event) {
+      // Duraklara önce bakıyoruz: durak işaretleri POI ve çizimlerin
+      // üstünde duruyor, alttakini seçmek üstündekini tıklanamaz yapardı.
+      const stopFeature = map.forEachFeatureAtPixel(event.pixel, (f) => f, {
+        layerFilter: (layer) => layer === stopLayerRef.current,
+      })
+
+      if (stopFeature) {
+        setSelectedStop(stopFeature.get('stop'))
+        return
+      }
+
       // POI'ye önce bakıyoruz: POI işareti çizimin üstünde duruyor, alttaki
       // çizimi seçmek üstündekini tıklanamaz yapardı.
       const poiFeature = map.forEachFeatureAtPixel(event.pixel, (f) => f, {
@@ -330,7 +546,9 @@ export default function MapView() {
       if (event.dragging) return
       const overFeature = map.hasFeatureAtPixel(event.pixel, {
         layerFilter: (layer) =>
-          layer === featureLayerRef.current || layer === poiLayerRef.current,
+          layer === featureLayerRef.current ||
+          layer === poiLayerRef.current ||
+          layer === stopLayerRef.current,
       })
       element.style.cursor = overFeature ? 'pointer' : ''
     }
@@ -343,7 +561,18 @@ export default function MapView() {
       map.un('pointermove', onPointerMove)
       element.style.cursor = ''
     }
-  }, [activeTool, pending, pendingPoi, selected, selectedPoi, mapRef, featureLayerRef, poiLayerRef])
+  }, [
+    activeTool,
+    pending,
+    pendingPoi,
+    selected,
+    selectedPoi,
+    selectedStop,
+    mapRef,
+    featureLayerRef,
+    poiLayerRef,
+    stopLayerRef,
+  ])
 
   // --- Seçili objenin geometrisini düzenlenebilir yap ---
   useEffect(() => {
@@ -422,6 +651,7 @@ export default function MapView() {
       setIsConfirmingDelete(false)
       setIsConfirmingPoiDelete(false)
       setSelectedPoi(null)
+      setSelectedStop(null)
       // Geometri değişikliği varsa geri alınsın diye state'i fonksiyonel
       // güncelliyoruz; effect'in bağımlılığına selected eklemeye gerek kalmıyor.
       setSelected((current) => {
@@ -493,12 +723,195 @@ export default function MapView() {
       feature.setId(`poi-${saved.id}`)
       feature.set('name', saved.name)
       feature.set('poi', saved)
+      setPois((current) => [...current, saved])
       setPendingPoi(null)
 
+      // POI gösterimi de sunucuda çizilen bir resim; yeni kaydın görünmesi
+      // için tazelemek gerekiyor. Resim gelene kadar işaret görünür kalsın.
+      refreshWmsLayer(poiWmsRef.current, () => feature.unset('interactive'))
       // Yoğunluk haritası noktaları sayıyor; POI eklenince tazelensin.
       refreshWmsLayer(heatmapRef.current)
     },
-    [pendingPoi, heatmapRef],
+    [pendingPoi, poiWmsRef, heatmapRef],
+  )
+
+  // --- Ulaşım işlemleri ---
+
+  /** Durak formundan gelen bilgilerle kaydeder ve haritayı tazeler. */
+  const handleSaveStop = useCallback(
+    async ({ name, routeId }) => {
+      await createStop({ name, wkt: pendingStop.wkt, routeId })
+      setPendingStop(null)
+      setTransportError('')
+      await loadRoutes()
+    },
+    [pendingStop, loadRoutes],
+  )
+
+  const handleSaveRoute = useCallback(
+    async (form) => {
+      const payload = { name: form.name.trim(), color: form.color, isActive: form.isActive }
+
+      try {
+        const saved = form.id === null
+          ? await createRoute(payload)
+          : await updateRoute(form.id, payload)
+
+        setTransportError('')
+        await loadRoutes()
+        // Yeni eklenen güzergah hemen seçili gelsin: kullanıcının bir
+        // sonraki işi zaten ona durak eklemek.
+        setSelectedRouteId(saved.id)
+      } catch (err) {
+        setTransportError(err.response?.data?.message ?? 'Güzergah kaydedilemedi.')
+      }
+    },
+    [loadRoutes],
+  )
+
+  const handleDeleteRoute = useCallback(
+    async (route) => {
+      if (!window.confirm(`"${route.name}" güzergahı silinsin mi?`)) return
+
+      try {
+        await deleteRoute(route.id)
+        setTransportError('')
+        setSelectedRouteId(null)
+        await loadRoutes()
+      } catch (err) {
+        setTransportError(err.response?.data?.message ?? 'Güzergah silinemedi.')
+      }
+    },
+    [loadRoutes],
+  )
+
+  const handleDeleteStop = useCallback(
+    async (stop) => {
+      if (!window.confirm(`"${stop.name}" durağı silinsin mi?`)) return
+
+      try {
+        await deleteStop(stop.id)
+        setTransportError('')
+        setSelectedStop(null)
+        await loadRoutes()
+      } catch (err) {
+        setTransportError(err.response?.data?.message ?? 'Durak silinemedi.')
+      }
+    },
+    [loadRoutes],
+  )
+
+  /**
+   * Sürükle-bırak sonucu. Sunucuya tüm listeyi gönderip dönen sonuçla
+   * çiziyoruz; iyimser güncelleme yapıp sunucu reddederse ekranla
+   * veritabanı ayrışırdı.
+   */
+  const handleReorder = useCallback(
+    async (routeId, stopIds) => {
+      try {
+        await reorderStops(routeId, stopIds)
+        setTransportError('')
+        await loadRoutes()
+      } catch (err) {
+        setTransportError(err.response?.data?.message ?? 'Sıralama kaydedilemedi.')
+      }
+    },
+    [loadRoutes],
+  )
+
+  /** Listeden bir durağa tıklanınca haritada ona uçar ve bilgisini açar. */
+  const handleFocusStop = useCallback(
+    (stop) => {
+      const geometry = wktToFeature(stop.wkt).getGeometry()
+
+      mapRef.current.getView().animate({
+        center: geometry.getCoordinates(),
+        zoom: 15,
+        duration: 700,
+      })
+
+      setSelectedStop(stop)
+    },
+    [mapRef],
+  )
+
+  /**
+   * Analizi başlatır: kriterleri ve hedef bölgeyi WMS katmanının
+   * parametrelerine yazıp katmanı görünür yapıyor. Hesabı GeoServer
+   * yapıyor, biz yalnızca isteği kuruyoruz.
+   */
+  const runLocationAnalysis = useCallback(() => {
+    const problem = validateAnalysis({ criteria, provinceId, areaWkt })
+
+    if (problem) {
+      setLocationError(problem)
+      return
+    }
+
+    setLocationError('')
+
+    const layer = locationAnalysisRef.current
+    const source = layer.getSource()
+
+    // updateParams hem parametreleri değiştiriyor hem yeniden çizdiriyor.
+    // Kullanılmayan alan parametresini undefined yapıyoruz ki önceki
+    // analizden kalan il/poligon isteğe eklenmesin.
+    source.updateParams({
+      criteria: criteriaToParam(criteria),
+      provinceId: provinceId ?? undefined,
+      areaWkt: provinceId ? undefined : areaWkt,
+    })
+
+    layer.setVisible(true)
+    setIsAnalysisOn(true)
+
+    // POI gösterimini soluklaştır: ısı haritası zaten POI'lerin olduğu
+    // yerde yoğunlaşıyor, ikisi tam güçte üst üste binince desen okunmuyor.
+    poiWmsRef.current?.setOpacity(0.35)
+
+    // Haritayı hedef bölgeye oturt: Türkiye geneli görüntüde tek bir ilin
+    // ısı haritası birkaç piksel kalıyor, kullanıcı sonucu göremiyor.
+    const extent = locationAreaSourceRef.current?.getExtent()
+
+    if (extent && Number.isFinite(extent[0])) {
+      mapRef.current.getView().fit(extent, {
+        padding: [40, 40, 40, 40],
+        duration: 700,
+        maxZoom: 12,
+      })
+    }
+  }, [criteria, provinceId, areaWkt, locationAnalysisRef, locationAreaSourceRef, poiWmsRef, mapRef])
+
+  /** Analizi ve hedef bölge seçimini sıfırlar. */
+  const clearLocationAnalysis = useCallback(() => {
+    locationAnalysisRef.current?.setVisible(false)
+    poiWmsRef.current?.setOpacity(1)
+    locationAreaSourceRef.current?.clear()
+    setIsAnalysisOn(false)
+    setProvinceId(null)
+    setAreaWkt(null)
+    setLocationError('')
+    setActiveTool((tool) => (tool === 'LocationArea' ? null : tool))
+  }, [locationAnalysisRef, locationAreaSourceRef, poiWmsRef])
+
+  /**
+   * Arama sonucuna tıklanınca o POI'ye uçar ve bilgi panelini açar.
+   * Zoom 14: ilçe ölçeği - hem POI'nin çevresi görünüyor hem de SLD'deki
+   * isim etiketi bu yakınlıkta devreye giriyor.
+   */
+  const handleSearchSelect = useCallback(
+    (poi) => {
+      const geometry = wktToFeature(poi.wkt).getGeometry()
+
+      mapRef.current.getView().animate({
+        center: geometry.getCoordinates(),
+        zoom: 14,
+        duration: 700,
+      })
+
+      setSelectedPoi(poi)
+    },
+    [mapRef],
   )
 
   /** POI'yi soft delete eder ve haritadaki işaretini kaldırır. */
@@ -511,12 +924,14 @@ export default function MapView() {
     const feature = source.getFeatureById(`poi-${selectedPoi.id}`)
     if (feature) source.removeFeature(feature)
 
+    setPois((current) => current.filter((p) => p.id !== selectedPoi.id))
     setIsConfirmingPoiDelete(false)
     setSelectedPoi(null)
 
+    refreshWmsLayer(poiWmsRef.current)
     // Isı haritası noktaları sayıyor; POI silinince tazelensin.
     refreshWmsLayer(heatmapRef.current)
-  }, [selectedPoi, poiSourceRef, heatmapRef])
+  }, [selectedPoi, poiSourceRef, poiWmsRef, heatmapRef])
 
   /** Vazgeçilirse haritaya konan geçici işaret kalkar. */
   const handleCancelPoi = useCallback(() => {
@@ -589,6 +1004,8 @@ export default function MapView() {
     <div className="map-view">
       <div className="map-view__canvas" ref={containerRef} />
 
+      <PoiSearch pois={pois} onSelect={handleSearchSelect} />
+
       <CoordinateSearch onSearch={handleSearch} />
 
       <DrawToolbar
@@ -599,11 +1016,76 @@ export default function MapView() {
         canDelete={hasPermission('feature.delete')}
         isHeatmapOn={isHeatmapOn}
         onToggleHeatmap={() => setIsHeatmapOn((on) => !on)}
+        isLocationOpen={isLocationOpen}
+        onToggleLocation={() => setIsLocationOpen((open) => !open)}
+        isRoutePanelOpen={isRoutePanelOpen}
+        onToggleRoutePanel={() => setIsRoutePanelOpen((open) => !open)}
       />
+
+      {isRoutePanelOpen && (
+        <RoutePanel
+          routes={routes}
+          selectedRouteId={selectedRouteId}
+          canManage={hasPermission('route.manage') || hasPermission('stop.manage')}
+          isAddingStop={activeTool === 'Stop'}
+          error={transportError}
+          onSelectRoute={setSelectedRouteId}
+          onSaveRoute={handleSaveRoute}
+          onDeleteRoute={handleDeleteRoute}
+          onToggleAddStop={() => setActiveTool((tool) => (tool === 'Stop' ? null : 'Stop'))}
+          onReorder={handleReorder}
+          onDeleteStop={handleDeleteStop}
+          onFocusStop={handleFocusStop}
+          onClose={() => setIsRoutePanelOpen(false)}
+        />
+      )}
+
+      {pendingStop && (
+        <SaveStopDialog
+          routes={routes}
+          defaultRouteId={selectedRouteId}
+          onSave={handleSaveStop}
+          onCancel={() => setPendingStop(null)}
+        />
+      )}
+
+      {selectedStop && (
+        <StopInfoPanel
+          stop={selectedStop}
+          canManage={hasPermission('stop.manage')}
+          onDelete={() => handleDeleteStop(selectedStop)}
+          onClose={() => setSelectedStop(null)}
+        />
+      )}
+
+      {isLocationOpen && (
+        <LocationAnalysisPanel
+          categories={categories}
+          provinces={provinces}
+          provinceId={provinceId}
+          areaWkt={areaWkt}
+          isDrawing={activeTool === 'LocationArea'}
+          criteria={criteria}
+          isRunning={false}
+          error={locationError}
+          onProvinceChange={(id) => {
+            setProvinceId(id)
+            setLocationError('')
+            if (id === null) locationAreaSourceRef.current?.clear()
+          }}
+          onDrawToggle={() =>
+            setActiveTool((tool) => (tool === 'LocationArea' ? null : 'LocationArea'))
+          }
+          onCriteriaChange={setCriteria}
+          onRun={runLocationAnalysis}
+          onClear={clearLocationAnalysis}
+          onClose={() => setIsLocationOpen(false)}
+        />
+      )}
 
       {/* Lejant yalnızca ısı haritası açıkken: kapalıyken açıklayacağı
           bir renk yok, boş yer kaplardı. */}
-      {isHeatmapOn && <HeatmapLegend />}
+      {(isHeatmapOn || isAnalysisOn) && <HeatmapLegend />}
 
       {isLoading && (
         <p className="map-view__loading" role="status">
@@ -655,7 +1137,7 @@ export default function MapView() {
       {/* Detay paneli açıkken analiz paneli gizleniyor: ikisi de sağ üstte
           duruyor ve üst üste binince alttakinin düğmelerine erişilemiyor.
           Sonuç state'te kalıyor, detay kapanınca panel geri geliyor. */}
-      {analysis && !selected && !selectedPoi && (
+      {analysis && !selected && !selectedPoi && !selectedStop && (
         <AnalysisPanel
           title={analysis.title}
           isLoading={analysis.isLoading}

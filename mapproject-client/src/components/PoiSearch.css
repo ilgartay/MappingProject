@@ -1,0 +1,93 @@
+/* Sol üstte, koordinat kutusunun üstünde. Google Maps'teki gibi
+   haritanın üstünde yüzüyor. */
+.poi-search {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 4;
+  width: 300px;
+}
+
+.poi-search__box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+
+.poi-search__icon {
+  display: flex;
+  color: var(--text-muted);
+}
+
+.poi-search__input {
+  flex: 1;
+  min-width: 0;
+  padding: 11px 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  font-size: 0.88rem;
+  color: var(--text);
+}
+
+.poi-search__results {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 4px;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: var(--shadow);
+  /* Çok sonuç varsa liste kayar, panel büyümez. */
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.poi-search__result {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.poi-search__result:hover,
+.poi-search__result:focus-visible {
+  background: var(--surface-muted, #f1f5f9);
+}
+
+.poi-search__name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.poi-search__meta {
+  font-size: 0.73rem;
+  color: var(--text-muted);
+}
+
+.poi-search__empty {
+  padding: 10px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+@media (max-width: 560px) {
+  .poi-search {
+    left: 8px;
+    right: 8px;
+    width: auto;
+  }
+}

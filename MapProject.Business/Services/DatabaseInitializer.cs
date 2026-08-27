@@ -41,7 +41,9 @@ public class DatabaseInitializer : IDatabaseInitializer
         ("geo.manage", "Coğrafi Yetki Tanımlama", "Kullanıcı ve rollere çizim alanı tanımlayabilir."),
         ("poi.create", "POI Ekleme", "Haritaya ilgi noktası (POI) ekleyebilir."),
         ("poi.manage", "POI Yönetimi", "Admin panelinden tüm POI'leri görüntüleyebilir ve yönetebilir."),
-        ("category.manage", "Kategori Yönetimi", "POI kategorilerini ekleyip düzenleyebilir.")
+        ("category.manage", "Kategori Yönetimi", "POI kategorilerini ekleyip düzenleyebilir."),
+        ("route.manage", "Güzergah Yönetimi", "Ulaşım güzergahlarını ekleyip düzenleyebilir."),
+        ("stop.manage", "Durak Yönetimi", "Haritaya durak ekleyebilir, düzenleyebilir ve sırasını değiştirebilir.")
     ];
 
     /// <summary>Tüm yetkiyi alan rol; adı burada tek yerde duruyor.</summary>
@@ -53,7 +55,16 @@ public class DatabaseInitializer : IDatabaseInitializer
         ("Operatör", "Çizim ve POI ekleyebilir, yönetim ekranlarına giremez",
             ["point.create", "line.create", "polygon.create", "feature.update", "feature.delete",
              "analysis.run", "analysis.heatmap", "poi.create"]),
-        ("Kullanıcı", "Sadece haritayı görüntüler", [])
+        ("Kullanıcı", "Sadece haritayı görüntüler", []),
+
+        // Ulaşım modülünün kendi rolleri. Ödevdeki not gereği bu roller
+        // POI ekleyemiyor ve harita çizim araçlarını kullanamıyor -
+        // listelerinde point.create / poi.create gibi yetkiler yok.
+        // POI'leri GÖRMELERİ için ayrıca yetki gerekmiyor: POI listesi ve
+        // haritadaki gösterimi zaten kimlik doğrulanmış herkese açık.
+        ("Ulaşım Operatörü", "Durak ve güzergah yönetir; POI ve çizim ekleyemez",
+            ["route.manage", "stop.manage"]),
+        ("Ulaşım Kullanıcısı", "Durak ve güzergahları görüntüler", [])
     ];
 
     /// <summary>

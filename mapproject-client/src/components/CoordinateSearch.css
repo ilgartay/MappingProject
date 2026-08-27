@@ -1,6 +1,7 @@
 .coord-search {
   position: absolute;
-  top: 12px;
+  /* POI arama barı sol üstte; koordinat kutusu onun altına iniyor. */
+  top: 64px;
   left: 12px;
   z-index: 2;
   padding: 10px;
@@ -70,7 +71,7 @@
    koordinat kutusu onun altına iniyor. */
 @media (max-width: 560px) {
   .coord-search {
-    top: 106px;
+    top: 116px;
     left: 8px;
     right: 8px;
   }

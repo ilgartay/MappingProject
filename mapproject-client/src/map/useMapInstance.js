@@ -11,8 +11,21 @@ import ScaleLine from 'ol/control/ScaleLine'
 import { fromLonLat, transformExtent } from 'ol/proj'
 import 'ol/ol.css'
 
-import { allowedAreaStyle, analysisStyle, featureStyle, poiStyle, targetStyle } from './styles'
-import { createFeatureWmsLayer, createHeatmapLayer } from './wmsLayers'
+import {
+  allowedAreaStyle,
+  analysisStyle,
+  featureStyle,
+  poiStyle,
+  routeLineStyle,
+  stopStyle,
+  targetStyle,
+} from './styles'
+import {
+  createFeatureWmsLayer,
+  createHeatmapLayer,
+  createLocationAnalysisLayer,
+  createPoiWmsLayer,
+} from './wmsLayers'
 import { TURKEY_CENTER, TURKEY_EXTENT } from './turkey'
 
 /**
@@ -57,7 +70,21 @@ export function useMapInstance(containerRef) {
   /** Isı haritası; "Isı Haritası Analizi" açılana kadar gizli. */
   const heatmapRef = useRef(null)
 
-  /** İlgi noktaları (POI). Tıklanıp bilgi paneli açıldığı için vektör. */
+  /**
+   * İlgi noktaları. Gösterim WMS'te (kategoriye göre ikon, zoom'a bağlı
+   * etiket); vektör katmanı görünmez ama tıklanabilir - çizimlerdeki
+   * ayrımın aynısı.
+   */
+  /** Konum analizinin ısı haritası ve hedef bölge sınırı. */
+  const locationAnalysisRef = useRef(null)
+  const locationAreaSourceRef = useRef(null)
+
+  /** Ulaşım modülü: hat çizgileri ve duraklar. */
+  const routeLineSourceRef = useRef(null)
+  const stopSourceRef = useRef(null)
+  const stopLayerRef = useRef(null)
+
+  const poiWmsRef = useRef(null)
   const poiSourceRef = useRef(null)
   const poiLayerRef = useRef(null)
 
@@ -90,9 +117,27 @@ export function useMapInstance(containerRef) {
     const heatmap = createHeatmapLayer()
     heatmapRef.current = heatmap
 
-    // POI'ler WMS ile değil vektör olarak çiziliyor: her birine tıklanıp
-    // bilgi paneli açılması gerekiyor, resim üzerinde bu mümkün değil.
-    // Önceki ödevdeki ayrımın aynısı - gösterim WMS, etkileşim WFS.
+    const locationAnalysis = createLocationAnalysisLayer()
+    locationAnalysisRef.current = locationAnalysis
+
+    // Hedef bölgenin sınırı; analiz alanının nerede bittiği görünsün.
+    const locationAreaSource = new VectorSource()
+    locationAreaSourceRef.current = locationAreaSource
+
+    const routeLineSource = new VectorSource()
+    routeLineSourceRef.current = routeLineSource
+
+    const stopSource = new VectorSource()
+    stopSourceRef.current = stopSource
+
+    const stopLayer = new VectorLayer({ source: stopSource, style: stopStyle })
+    stopLayerRef.current = stopLayer
+
+    const poiWms = createPoiWmsLayer()
+    poiWmsRef.current = poiWms
+
+    // Vektör katmanı görünmüyor; yalnızca tıklama isabeti için duruyor.
+    // Seçilen POI görünür hale geliyor (styles.js).
     const poiSource = new VectorSource()
     poiSourceRef.current = poiSource
 
@@ -106,8 +151,20 @@ export function useMapInstance(containerRef) {
         // Isı haritası altta: üstündeki nokta işaretleri görünmeye devam
         // etsin, kullanıcı hangi noktaların yoğunluğu oluşturduğunu görsün.
         heatmap,
-        // Genel gösterim - sunucuda çizilmiş resim.
+        // Genel gösterim - sunucuda çizilmiş resimler.
         featureWms,
+        poiWms,
+        // Hat çizgisi durakların altında kalsın.
+        new VectorLayer({ source: routeLineSource, style: routeLineStyle }),
+        stopLayer,
+        // Konum analizi ısı haritası POI'lerin ÜSTÜNDE.
+        //
+        // Altta dururken POI işaretleri ve beyaz konturlu etiketleri tam
+        // ısının yoğunlaştığı yere yığılıp sonucu kapatıyordu - ısı
+        // zaten POI'lerin olduğu yerde çıkıyor. Üstte ve yarı saydam
+        // olunca hem desen okunuyor hem işaretler altından görünüyor.
+        locationAnalysis,
+        new VectorLayer({ source: locationAreaSource, style: analysisStyle }),
         // Etkileşim katmanı: görünmez, ama tıklanabilir ve düzenlenebilir.
         featureLayer,
         poiLayer,
@@ -163,6 +220,12 @@ export function useMapInstance(containerRef) {
     areaSourceRef,
     featureWmsRef,
     heatmapRef,
+    locationAnalysisRef,
+    locationAreaSourceRef,
+    routeLineSourceRef,
+    stopSourceRef,
+    stopLayerRef,
+    poiWmsRef,
     poiSourceRef,
     poiLayerRef,
   }

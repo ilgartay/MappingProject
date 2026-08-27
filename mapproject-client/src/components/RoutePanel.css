@@ -1,0 +1,321 @@
+/* Sol tarafta: sağ üst köşe analiz ve detay panellerinin, sol üst de
+   arama barının. Güzergah paneli uzun olduğu için sol kenara yaslanıp
+   yukarıdan aşağı iniyor. */
+.route-panel {
+  position: absolute;
+  /* Koordinat kutusunun altında; üstünde arama barı ve koordinat kutusu var. */
+  top: 172px;
+  left: 12px;
+  z-index: 3;
+  width: 290px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: var(--shadow);
+  max-height: calc(100% - 190px);
+  overflow-y: auto;
+}
+
+.route-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.route-panel__header h2 {
+  margin: 0;
+  font-size: 1rem;
+  letter-spacing: -0.01em;
+}
+
+.route-panel__close {
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.route-panel__close:hover {
+  background: var(--surface-muted, #f1f5f9);
+  color: var(--text);
+}
+
+.route-panel__error {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--danger-bg);
+  border: 1px solid #fecaca;
+  font-size: 0.78rem;
+  color: var(--danger);
+}
+
+.route-panel__routes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.route-panel__route {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  margin-bottom: 4px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: var(--surface-muted, #f8fafc);
+  font: inherit;
+  font-size: 0.83rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.route-panel__route--on {
+  border-color: var(--brand);
+  background: #fff;
+}
+
+/* Renk noktası: haritadaki durak rengiyle aynı, hangi hattın hangisi
+   olduğu listeden anlaşılsın. */
+.route-panel__dot {
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.route-panel__name {
+  flex: 1;
+  font-weight: 600;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.route-panel__count {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.route-panel__empty {
+  margin: 8px 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.route-panel__add,
+.route-panel__draw,
+.route-panel__delete {
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.81rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.route-panel__add {
+  border: 1px dashed var(--border);
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.route-panel__draw {
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--text);
+}
+
+.route-panel__draw--on {
+  border-color: var(--brand);
+  background: var(--brand);
+  color: #fff;
+}
+
+.route-panel__delete {
+  border: 1px solid #fecaca;
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.route-panel__form {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.route-panel__label {
+  display: block;
+  margin: 8px 0 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.route-panel__form input {
+  width: 100%;
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.83rem;
+}
+
+.route-panel__colors {
+  display: flex;
+  gap: 6px;
+}
+
+.route-panel__swatch {
+  width: 26px;
+  height: 26px;
+  border: 2px solid transparent;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.route-panel__swatch--on {
+  border-color: var(--text);
+}
+
+.route-panel__form-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.route-panel__form-actions button {
+  flex: 1;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  font: inherit;
+  font-size: 0.81rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.route-panel__save {
+  border-color: transparent !important;
+  background: var(--brand) !important;
+  color: #fff;
+}
+
+.route-panel__section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 14px 0 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.route-panel__edit {
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 0.75rem;
+  color: var(--brand);
+  cursor: pointer;
+}
+
+.route-panel__stops {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.route-panel__stop {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  margin-bottom: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  font-size: 0.82rem;
+}
+
+/* Sürüklenen satır soluklaşıyor: hangisinin taşındığı belli olsun. */
+.route-panel__stop--drag {
+  opacity: 0.45;
+}
+
+.route-panel__grip {
+  color: var(--text-muted);
+  cursor: grab;
+  user-select: none;
+}
+
+.route-panel__order {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--surface-muted, #f1f5f9);
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.route-panel__stop-name {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 0.82rem;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.route-panel__stop-name:hover {
+  color: var(--brand);
+}
+
+.route-panel__remove {
+  border: none;
+  background: transparent;
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.route-panel__remove:hover {
+  color: var(--danger);
+}
+
+.route-panel__hint {
+  margin: 6px 0 0;
+  font-size: 0.73rem;
+  color: var(--text-muted);
+}
+
+@media (max-width: 560px) {
+  .route-panel {
+    top: auto;
+    bottom: 12px;
+    left: 8px;
+    right: 8px;
+    width: auto;
+    max-height: 60%;
+  }
+}

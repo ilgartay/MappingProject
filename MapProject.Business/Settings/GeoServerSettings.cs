@@ -39,6 +39,29 @@ public class GeoServerSettings
     public string PoiLayer { get; set; } = "vw_poi";
 
     /// <summary>
+    /// POI kategorilerinin stilleri. Her biri kendi kategorisini filtreleyip
+    /// kendi ikonuyla çiziyor; WMS aynı katmanı bu stillerin her biri için
+    /// bir kez çizdiği için hepsi tek resimde birleşiyor.
+    ///
+    /// Sıra önemli: sondaki stil en üstte çiziliyor. "poi_diger" listede
+    /// son değil çünkü yedek stil diğerlerinin üstünü kapatmasın.
+    ///
+    /// Yeni bir kategoriye kendi görünümü verilecekse SLD'si GeoServer'a
+    /// yüklenip adı buraya eklenmeli; eklenmezse "poi_diger" devreye girer.
+    /// </summary>
+    public IReadOnlyList<string> PoiStyles { get; set; } =
+        ["poi_diger", "poi_konaklama", "poi_yeme_icme", "poi_saglik"];
+
+    /// <summary>
+    /// Konum analizinin katmanı: parametreli SQL View. Kriterlerin puanı
+    /// buraya viewparams olarak geçiyor ve "agirlik" kolonuna yazılıyor.
+    /// </summary>
+    public string WeightedPoiLayer { get; set; } = "vw_poi_agirlikli";
+
+    /// <summary>Ağırlığı dikkate alan ısı haritası stili.</summary>
+    public string WeightedHeatmapStyle { get; set; } = "poi_isi_agirlikli";
+
+    /// <summary>
     /// Isı haritası SLD'sinin adı. Yoğunluk hesabı bu stilin içindeki
     /// Heatmap dönüşümünde yapılıyor, kodumuzda değil.
     /// </summary>

@@ -76,26 +76,63 @@ export function featureStyle(feature) {
 /**
  * POI işareti.
  *
- * Çizimlerden ayrışması gerekiyor: çizimler kullanıcının kendi kayıtları,
- * POI'ler ise herkesin gördüğü ortak veri. Bu yüzden hem farklı renk hem
- * de farklı şekil (kare) kullanıyoruz - renk körü biri için de ayırt
- * edilebilir kalsın.
+ * Kayıtlı POI'leri WMS gösteriyor (kategorisine göre ikon, yakınlaşınca
+ * isim), bu yüzden vektör katmanı normalde görünmez - yalnızca tıklama
+ * isabeti için duruyor. Kullanıcının seçtiği ya da henüz kaydetmediği
+ * POI 'interactive' işaretiyle görünür hale geliyor.
  */
 export function poiStyle(feature) {
+  if (!feature.get('interactive')) {
+    return INTERACTION_ONLY
+  }
+
   return new Style({
     image: new RegularShape({
       points: 4,
-      radius: 8,
+      radius: 9,
       angle: Math.PI / 4,
       fill: new Fill({ color: '#e11d48' }),
       stroke: new Stroke({ color: '#ffffff', width: 2 }),
     }),
+  })
+}
+
+/**
+ * Durak işareti: bağlı olduğu güzergahın renginde, içinde sıra numarası.
+ *
+ * POI'lerden farklı olarak duraklar WMS ile değil vektör olarak
+ * çiziliyor. Gerekçe ölçek: durak sayısı onlarla ifade ediliyor ve modül
+ * düzenleme ağırlıklı - sıra değişince ya da güzergahın rengi
+ * güncellenince sonucun anında görünmesi gerekiyor. Sunucudan resim
+ * beklemek burada yavaşlatırdı.
+ */
+export function stopStyle(feature) {
+  const color = feature.get('routeColor') ?? FALLBACK_COLOR
+
+  return new Style({
+    image: new Circle({
+      radius: 10,
+      fill: new Fill({ color }),
+      stroke: new Stroke({ color: '#ffffff', width: 2 }),
+    }),
     text: new Text({
-      text: feature.get('name') ?? '',
-      font: '600 12px system-ui, sans-serif',
-      offsetY: -16,
-      fill: new Fill({ color: '#881337' }),
-      stroke: new Stroke({ color: '#ffffff', width: 3 }),
+      // Sıra numarası işaretin içinde: hattın hangi yönde ilerlediği
+      // haritaya bakınca anlaşılsın.
+      text: String(feature.get('order') ?? ''),
+      font: '700 11px system-ui, sans-serif',
+      fill: new Fill({ color: '#ffffff' }),
+    }),
+  })
+}
+
+/** Durakları sırayla birleştiren hat çizgisi. */
+export function routeLineStyle(feature) {
+  return new Style({
+    stroke: new Stroke({
+      color: feature.get('routeColor') ?? FALLBACK_COLOR,
+      width: 4,
+      lineCap: 'round',
+      lineJoin: 'round',
     }),
   })
 }

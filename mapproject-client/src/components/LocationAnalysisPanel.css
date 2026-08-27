@@ -1,0 +1,244 @@
+/* Sağ üstte, diğer panellerle aynı köşe. MapView aynı anda yalnızca
+   birini açıyor, üst üste binmeleri mümkün değil. */
+.loc-panel {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 3;
+  width: 300px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: var(--shadow);
+  /* Kriter satırları arttıkça panel değil kendi içi kaysın. */
+  max-height: calc(100% - 24px);
+  overflow-y: auto;
+}
+
+.loc-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.loc-panel__header h2 {
+  margin: 0;
+  font-size: 1rem;
+  letter-spacing: -0.01em;
+}
+
+.loc-panel__close {
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.loc-panel__close:hover {
+  background: var(--surface-muted, #f1f5f9);
+  color: var(--text);
+}
+
+.loc-panel__section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 14px 0 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.loc-panel__section:first-of-type {
+  margin-top: 4px;
+}
+
+.loc-panel__count {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.loc-panel__select,
+.loc-panel__criteria select,
+.loc-panel__criteria input {
+  width: 100%;
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  font: inherit;
+  font-size: 0.83rem;
+  color: var(--text);
+}
+
+.loc-panel__draw {
+  width: 100%;
+  margin-top: 6px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.loc-panel__draw--on {
+  border-color: var(--brand);
+  background: var(--brand);
+  color: #fff;
+}
+
+.loc-panel__hint {
+  margin: 6px 0 0;
+  font-size: 0.73rem;
+  color: var(--text-muted);
+}
+
+.loc-panel__criteria {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Kategori esner, puan sabit dar, kaldırma düğmesi en sağda. */
+.loc-panel__criteria li {
+  display: grid;
+  grid-template-columns: 1fr 62px 26px;
+  gap: 5px;
+  margin-bottom: 6px;
+}
+
+.loc-panel__remove {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.loc-panel__remove:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.loc-panel__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.loc-panel__add {
+  padding: 5px 9px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: transparent;
+  font: inherit;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.loc-panel__add:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.loc-panel__total {
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--danger);
+}
+
+/* Toplam 100 olunca yeşile dönüyor: kullanıcı sayıyı okumadan da
+   hazır olduğunu anlıyor. */
+.loc-panel__total--ok {
+  color: var(--success, #059669);
+}
+
+.loc-panel__balance {
+  width: 100%;
+  margin-top: 6px;
+  padding: 6px;
+  border: none;
+  border-radius: 8px;
+  background: var(--surface-muted, #f1f5f9);
+  font: inherit;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.loc-panel__problem {
+  margin: 10px 0 0;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+
+.loc-panel__error {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--danger-bg);
+  border: 1px solid #fecaca;
+  font-size: 0.78rem;
+  color: var(--danger);
+}
+
+.loc-panel__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.loc-panel__clear,
+.loc-panel__run {
+  flex: 1;
+  padding: 9px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.83rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.loc-panel__clear {
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--text);
+}
+
+.loc-panel__run {
+  border: none;
+  background: var(--brand);
+  color: #fff;
+}
+
+.loc-panel__run:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+@media (max-width: 560px) {
+  .loc-panel {
+    top: auto;
+    bottom: 12px;
+    left: 8px;
+    right: 8px;
+    width: auto;
+    max-height: 70%;
+  }
+}

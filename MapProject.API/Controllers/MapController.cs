@@ -2,6 +2,7 @@ using MapProject.API.Authorization;
 using MapProject.API.Extensions;
 using MapProject.Business.Dtos;
 using MapProject.Business.GeoServer;
+using MapProject.Business.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -28,11 +29,16 @@ public class MapController : ApiControllerBase
     // bulamayınca tüm alanlar varsayılan kalıyor ve istek sessizce
     // 400'e düşüyor. Ad çakışması olmayan bir kelime seçmek gerekiyor.
     private readonly IGeoServerMapRenderer _renderer;
+    private readonly ILocationAnalysisService _locationAnalysis;
 
-    public MapController(IGeoServerMapRenderer renderer, ILogger<MapController> logger)
+    public MapController(
+        IGeoServerMapRenderer renderer,
+        ILocationAnalysisService locationAnalysis,
+        ILogger<MapController> logger)
         : base(logger)
     {
         _renderer = renderer;
+        _locationAnalysis = locationAnalysis;
     }
 
     /// <summary>
@@ -48,6 +54,17 @@ public class MapController : ApiControllerBase
     }
 
     /// <summary>
+    /// İlgi noktaları, kategorisine göre farklı ikonlarla.
+    /// Yetki istemiyoruz: POI'ler paylaşılan veri, Kullanıcı rolü de görüyor.
+    /// </summary>
+    [HttpGet("poi")]
+    public Task<IActionResult> Poi([FromQuery] MapRenderDto viewport)
+    {
+        viewport.LayerSet = MapLayerSet.Poi;
+        return RenderAsync(viewport);
+    }
+
+    /// <summary>
     /// Noktaların konum yoğunluğundan üretilen ısı haritası.
     /// Bir analiz aracı olduğu için ayrı yetkiye bağlı.
     /// </summary>
@@ -57,6 +74,28 @@ public class MapController : ApiControllerBase
     {
         viewport.LayerSet = MapLayerSet.Heatmap;
         return RenderAsync(viewport);
+    }
+
+    /// <summary>
+    /// Konum analizi: seçilen alandaki POI'lerden kriter puanlarına göre
+    /// ağırlıklandırılmış ısı haritası.
+    ///
+    /// Yetki istemiyor - ödev gereği Kullanıcı rolü de erişebilmeli.
+    /// Kriter ve alan doğrulaması serviste; kural bozuksa 400 dönüyor ve
+    /// analiz hiç başlamıyor.
+    /// </summary>
+    [HttpGet("location-analysis")]
+    public async Task<IActionResult> LocationAnalysis([FromQuery] LocationAnalysisDto viewport)
+    {
+        try
+        {
+            var image = await _locationAnalysis.RenderAsync(viewport, HttpContext.RequestAborted);
+            return File(image.Content, image.ContentType);
+        }
+        catch (Exception ex)
+        {
+            return HandleError(ex);
+        }
     }
 
     private async Task<IActionResult> RenderAsync(MapRenderDto viewport)
