@@ -93,9 +93,12 @@ NEIGHBOURHOODS = [
     "Gazi", "Atatürk", "Kültür", "Çamlık", "Yıldız", "Barbaros",
 ]
 
+# Bicim WorkingHoursPicker'in urettigiyle ayni: demo veri elle
+# eklenmis POI'lerden farkli gorunmesin, arama ikisini de bulsun.
 HOURS = [
-    "09:00 - 18:00", "08:00 - 20:00", "10:00 - 22:00", "7/24",
-    "09:00 - 17:00", "11:00 - 23:00", "08:30 - 19:30",
+    "Pzt-Cum 09:00-18:00", "Her gün 08:00-20:00", "Her gün 10:00-22:00",
+    "7/24", "Pzt-Cum 09:00-17:00", "Her gün 11:00-23:00",
+    "Pzt-Cmt 08:30-19:30",
 ]
 
 
@@ -138,9 +141,14 @@ rows = []
 for city, lon, lat, weight in CITIES:
     for name, parent, base, samples in CATEGORIES:
         # Sehrin nufus agirligi x kategorinin o sehirdeki egilimi.
+        #
+        # Bolen yogunlugu belirliyor. Once 2.5 idi, ~1870 POI cikiyordu:
+        # harita yakinlasmadan okunamayacak kadar kalabalikti. 10'a
+        # cikarinca ~470 kaliyor - isi haritasinin ve agirlikli analizin
+        # anlamli olmasi icin yeterli, ekrani bogmuyor.
         bias = CATEGORY_BIAS.get(name, {})
         factor = bias.get(city, bias.get("diger", 1.0))
-        count = max(0, int(base * weight * factor / 2.5) + random.randint(-1, 3))
+        count = max(0, int(base * weight * factor / 10) + random.randint(0, 1))
 
         # 0 cikabilir: o kategori o sehirde hic yok demek, bu da gercekci.
         if count == 0:

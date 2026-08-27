@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { categoryLabel } from '../api/poi'
+import WorkingHoursPicker from './WorkingHoursPicker'
+import { DEFAULT_HOURS, formatWorkingHours } from './workingHours'
 import './FeatureDialog.css'
 
 /**
@@ -12,7 +14,9 @@ import './FeatureDialog.css'
 export default function SavePoiDialog({ categories, onSave, onCancel }) {
   const [name, setName] = useState('')
   const [categoryId, setCategoryId] = useState('')
-  const [workingHours, setWorkingHours] = useState('')
+  // Seçici hazır bir mesaiyle açılıyor; kullanıcı hiç dokunmazsa da
+  // kaydedilecek değer burada duruyor.
+  const [workingHours, setWorkingHours] = useState(() => formatWorkingHours(DEFAULT_HOURS))
   const [error, setError] = useState('')
   const [isSaving, setIsSaving] = useState(false)
 
@@ -32,6 +36,11 @@ export default function SavePoiDialog({ categories, onSave, onCancel }) {
       return
     }
 
+    if (!workingHours) {
+      setError('Lütfen mesai günlerini seçin.')
+      return
+    }
+
     setError('')
     setIsSaving(true)
 
@@ -39,7 +48,7 @@ export default function SavePoiDialog({ categories, onSave, onCancel }) {
       await onSave({
         name: name.trim(),
         categoryId: Number(categoryId),
-        workingHours: workingHours.trim(),
+        workingHours,
       })
     } catch (err) {
       if (err.response?.data?.message) {
@@ -85,16 +94,10 @@ export default function SavePoiDialog({ categories, onSave, onCancel }) {
           ))}
         </select>
 
-        <label className="feature-dialog__label feature-dialog__label--spaced" htmlFor="poi-hours">
+        <span className="feature-dialog__label feature-dialog__label--spaced">
           Mesai saatleri
-        </label>
-        <input
-          id="poi-hours"
-          value={workingHours}
-          onChange={(e) => setWorkingHours(e.target.value)}
-          placeholder="Örn. 09:00 - 18:00 veya 7/24"
-          maxLength={100}
-        />
+        </span>
+        <WorkingHoursPicker onChange={setWorkingHours} />
 
         {selectable.length === 0 && (
           <p className="feature-dialog__error" role="alert">
@@ -112,7 +115,7 @@ export default function SavePoiDialog({ categories, onSave, onCancel }) {
           <button type="button" className="feature-dialog__cancel" onClick={onCancel}>
             İptal
           </button>
-          <button type="submit" className="feature-dialog__save" disabled={isSaving}>
+          <button type="submit" className="feature-dialog__submit" disabled={isSaving}>
             {isSaving ? 'Kaydediliyor…' : 'Kaydet'}
           </button>
         </div>

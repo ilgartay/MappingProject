@@ -1,0 +1,102 @@
+.hours-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* fieldset'i yalnızca "hepsini birden pasifleştirme" için kullanıyoruz,
+   tarayıcının kendi kutu görünümü burada işe yaramıyor. */
+.hours-picker__group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.hours-picker__group:disabled {
+  opacity: 0.45;
+}
+
+/* 7/24 seçeneği tek başına duruyor; sütun hizalaması onu pencere
+   genişliğine kadar uzatmasın diye kendi boyunda kalıyor. */
+.hours-picker > .hours-picker__chip {
+  align-self: flex-start;
+}
+
+.hours-picker__days {
+  display: flex;
+  gap: 4px;
+}
+
+/* Yedi gün tek satıra sığsın: eşit paylaşıyorlar, yan boşluk dar.
+   Alt satıra taşsalardı "Cmt, Paz" ayrı bir grupmuş gibi görünüyordu. */
+.hours-picker__days .hours-picker__chip {
+  flex: 1;
+  justify-content: center;
+  padding: 7px 4px;
+}
+
+.hours-picker__chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 11px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+
+/* Kutunun kendisi gizli ama silinmiş değil: klavyeyle sekme yapılıyor,
+   ekran okuyucu "onay kutusu, işaretli" diyor. display:none deseydik
+   ikisi de kaybolurdu. */
+.hours-picker__chip input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.hours-picker__chip:has(input:checked) {
+  border-color: var(--brand);
+  background: var(--brand);
+  color: #fff;
+}
+
+/* Gizli kutunun odak halkasını görünen etikete taşıyoruz. */
+.hours-picker__chip:has(input:focus-visible) {
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.hours-picker__group:disabled .hours-picker__chip {
+  cursor: not-allowed;
+}
+
+.hours-picker__times {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Diyalogdaki genel kural select'leri %100 yapıyor; burada ikisi yan
+   yana duracağı için payı eşit bölüyoruz. */
+.hours-picker__times select {
+  flex: 1;
+  min-width: 0;
+}
+
+.hours-picker__dash {
+  color: var(--text-muted);
+}
+
+.hours-picker__preview {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}

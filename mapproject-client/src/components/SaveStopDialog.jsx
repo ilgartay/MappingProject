@@ -86,7 +86,7 @@ export default function SaveStopDialog({ routes, defaultRouteId, onSave, onCance
           <button type="button" className="feature-dialog__cancel" onClick={onCancel}>
             İptal
           </button>
-          <button type="submit" className="feature-dialog__save" disabled={isSaving}>
+          <button type="submit" className="feature-dialog__submit" disabled={isSaving}>
             {isSaving ? 'Kaydediliyor…' : 'Kaydet'}
           </button>
         </div>
