@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using System.Text;
 using MapProject.Business.GeoServer;
+using MapProject.Business.Routing;
 using MapProject.Business.Services;
 using MapProject.Business.Settings;
 using Microsoft.Extensions.DependencyInjection;
@@ -29,6 +30,28 @@ public static class DependencyInjection
         services.AddScoped<ILocationAnalysisService, LocationAnalysisService>();
         services.AddScoped<IDatabaseInitializer, DatabaseInitializer>();
         services.AddGeoServerClient();
+        services.AddOsrmClient();
+        return services;
+    }
+
+    /// <summary>
+    /// OSRM'e giden HttpClient. GeoServer'daki gerekçenin aynısı: her
+    /// istekte yeni HttpClient soket tüketir, tek statik olan DNS
+    /// değişikliğini kaçırır.
+    ///
+    /// Kimlik doğrulama yok - OSRM açık bir yönlendirme sunucusu ve
+    /// yalnızca localde, konteyner içinde çalışıyor.
+    /// </summary>
+    private static IServiceCollection AddOsrmClient(this IServiceCollection services)
+    {
+        services.AddHttpClient<IOsrmClient, OsrmClient>(client =>
+        {
+            // On durakli bir hat icin bile cevap saniyenin altinda geliyor;
+            // 20 saniye, sunucu asiri yuklendiginde bile bolca pay birakir
+            // ve kapali oldugunda kullaniciyi 100 saniye bekletmez.
+            client.Timeout = TimeSpan.FromSeconds(20);
+        });
+
         return services;
     }
 

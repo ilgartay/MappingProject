@@ -169,6 +169,11 @@ public class AppDbContext : DbContext
             entity.Property(r => r.Name).HasColumnName("ad").HasMaxLength(100).IsRequired();
             entity.Property(r => r.Color).HasColumnName("renk").HasMaxLength(7)
                 .IsRequired().HasDefaultValue("#2563eb");
+            entity.Property(r => r.RouteGeometry).HasColumnName("rota_geom")
+                .HasColumnType("geometry(LineString,4326)");
+            entity.Property(r => r.RouteDistance).HasColumnName("rota_mesafe");
+            entity.Property(r => r.RouteDuration).HasColumnName("rota_sure");
+            entity.Property(r => r.RouteBuiltAt).HasColumnName("rota_tarih");
             entity.Property(r => r.CreatedDate).HasColumnName("created_date");
             entity.Property(r => r.ModifiedDate).HasColumnName("modified_date");
             entity.Property(r => r.IsDeleted).HasColumnName("is_deleted").HasDefaultValue(false);

@@ -1,3 +1,4 @@
+import Point from 'ol/geom/Point'
 import { Circle, Fill, RegularShape, Stroke, Style, Text } from 'ol/style'
 
 /** Renk bilgisi gelmezse kullanılacak yedek. */
@@ -125,16 +126,114 @@ export function stopStyle(feature) {
   })
 }
 
-/** Durakları sırayla birleştiren hat çizgisi. */
+/**
+ * Durakları düz çizgiyle birleştiren yardımcı hat.
+ *
+ * Kesikli, çünkü bu gerçek bir yol değil: OSRM rotası üretilmemiş
+ * güzergahlarda durakların sırasını göstermek için var. Rota üretilince
+ * altında kalıyor ve asıl yolu osrmRouteStyle çiziyor.
+ */
 export function routeLineStyle(feature) {
   return new Style({
     stroke: new Stroke({
       color: feature.get('routeColor') ?? FALLBACK_COLOR,
-      width: 4,
+      width: 2,
+      lineDash: [6, 6],
       lineCap: 'round',
       lineJoin: 'round',
     }),
   })
+}
+
+// Oklar ekranda kabaca bu aralıkla dizilsin (piksel). Harita ölçeğine
+// göre değil ekrana göre hesaplıyoruz: yakınlaşınca oklar seyrelmesin.
+const ARROW_SPACING_PX = 90
+
+// Uzun bir rotaya yakınlaşıldığında ok sayısı binleri bulabiliyor;
+// her ok ayrı bir Style nesnesi olduğu için haritayı yavaşlatırdı.
+const MAX_ARROWS = 60
+
+/**
+ * OSRM'in ürettiği rota: kalın çizgi + yön okları.
+ *
+ * OpenLayers stil fonksiyonuna ikinci parametre olarak çözünürlüğü
+ * (harita birimi / piksel) veriyor; okların ekranda eşit aralıklı
+ * görünmesi bununla sağlanıyor.
+ */
+export function osrmRouteStyle(feature, resolution) {
+  const color = feature.get('routeColor') ?? FALLBACK_COLOR
+  const line = feature.getGeometry()
+
+  const styles = [
+    new Style({
+      stroke: new Stroke({ color, width: 5, lineCap: 'round', lineJoin: 'round' }),
+    }),
+  ]
+
+  const length = line.getLength()
+  if (length === 0) return styles
+
+  const spacing = Math.max(ARROW_SPACING_PX * resolution, length / MAX_ARROWS)
+
+  for (const arrow of arrowsAlong(line, spacing)) {
+    styles.push(
+      new Style({
+        geometry: new Point(arrow.point),
+        image: new RegularShape({
+          points: 3,
+          radius: 7,
+          rotation: arrow.rotation,
+          fill: new Fill({ color }),
+          // Beyaz kenarlık: ok, altındaki aynı renkli çizgiden ayrışsın.
+          stroke: new Stroke({ color: '#ffffff', width: 1.5 }),
+        }),
+      }),
+    )
+  }
+
+  return styles
+}
+
+/**
+ * Çizgi boyunca eşit aralıklı ok konumları ve yönleri.
+ *
+ * Yön hesabı Math.atan2(dx, dy) - alışılmış atan2(dy, dx) değil:
+ * OpenLayers'ta işaret döndürme açısı yukarıdan başlayıp saat yönünde
+ * ölçülüyor, üçgenin sivri ucu da varsayılan olarak yukarı bakıyor.
+ * atan2(dy, dx) yazsaydık oklar 90 derece yanlış dururdu.
+ */
+function arrowsAlong(line, spacing) {
+  const coordinates = line.getCoordinates()
+  const arrows = []
+
+  // İlk ok yarım aralık sonra: tam başlangıç noktasında dursaydı ilk
+  // durağın işaretinin altında kalırdı.
+  let next = spacing / 2
+  let travelled = 0
+
+  for (let i = 1; i < coordinates.length; i += 1) {
+    const [x1, y1] = coordinates[i - 1]
+    const [x2, y2] = coordinates[i]
+    const dx = x2 - x1
+    const dy = y2 - y1
+    const segment = Math.hypot(dx, dy)
+
+    if (segment === 0) continue
+
+    // Bir parça birden çok ok aralığı kadar uzun olabilir.
+    while (travelled + segment >= next) {
+      const ratio = (next - travelled) / segment
+      arrows.push({
+        point: [x1 + dx * ratio, y1 + dy * ratio],
+        rotation: Math.atan2(dx, dy),
+      })
+      next += spacing
+    }
+
+    travelled += segment
+  }
+
+  return arrows
 }
 
 /**

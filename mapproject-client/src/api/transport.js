@@ -25,6 +25,11 @@ export async function createStop(payload) {
   return data
 }
 
+export async function updateStop(id, payload) {
+  const { data } = await client.put(`/api/Transport/stops/${id}`, payload)
+  return data
+}
+
 export async function deleteStop(id) {
   await client.delete(`/api/Transport/stops/${id}`)
 }
@@ -37,6 +42,15 @@ export async function deleteStop(id) {
  */
 export async function reorderStops(routeId, stopIds) {
   const { data } = await client.put(`/api/Transport/routes/${routeId}/order`, { stopIds })
+  return data
+}
+
+/**
+ * "Rota Oluştur": durakların üzerinden geçen sürüş yolunu OSRM'e
+ * hesaplatıp güzergaha kaydeder. Güncellenmiş güzergahı döndürür.
+ */
+export async function buildRoute(routeId) {
+  const { data } = await client.post(`/api/Transport/routes/${routeId}/route`)
   return data
 }
 

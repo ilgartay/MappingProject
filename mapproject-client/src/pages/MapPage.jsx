@@ -49,8 +49,12 @@ function SessionTimer({ expiresAt }) {
 export default function MapPage() {
   const { username, expiresAt, logout, hasPermission } = useAuth()
 
-  // Yönetim bağlantısı sadece yetkisi olana görünsün.
-  const canManage = hasPermission('user.manage') || hasPermission('role.manage')
+  // Yönetim bağlantısı sadece panelde görecek bir şeyi olana görünsün.
+  // Ulaşım yetkileri de sayılıyor: Ulaşım Operatörü'nün admin panelinde
+  // yalnızca Ulaşım Yönetimi ekranı açılıyor, diğer menüler yetkisi
+  // olmadığı için hiç çizilmiyor.
+  const canManage = ['user.manage', 'role.manage', 'route.manage', 'stop.manage']
+    .some((code) => hasPermission(code))
 
   return (
     <div className="map-page">

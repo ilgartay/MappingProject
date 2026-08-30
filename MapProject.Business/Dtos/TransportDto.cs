@@ -18,6 +18,28 @@ public class RouteDto
 
     /// <summary>Güzergahın durakları, sıra numarasına göre.</summary>
     public IReadOnlyList<StopDto> Stops { get; set; } = [];
+
+    /// <summary>
+    /// OSRM'in ürettiği rota çizgisi (WKT, EPSG:4326). Rota hiç
+    /// üretilmediyse ya da duraklar değişip yeniden hesaplanamadıysa null.
+    /// </summary>
+    public string? RouteWkt { get; set; }
+
+    /// <summary>Rota mesafesi, metre.</summary>
+    public double? RouteDistance { get; set; }
+
+    /// <summary>Tahmini sürüş süresi, saniye.</summary>
+    public double? RouteDuration { get; set; }
+
+    /// <summary>Rotanın en son ne zaman üretildiği.</summary>
+    public DateTime? RouteBuiltAt { get; set; }
+
+    /// <summary>
+    /// Sıra değişince rota otomatik güncelleniyor; o sırada OSRM'e
+    /// ulaşılamazsa sıralama yine de kaydediliyor ve sebep buraya
+    /// yazılıyor. Kalıcı bir alan değil, yalnızca o cevaba özel.
+    /// </summary>
+    public string? RouteWarning { get; set; }
 }
 
 public class RouteSaveDto

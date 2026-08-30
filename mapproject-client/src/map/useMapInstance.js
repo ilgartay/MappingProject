@@ -16,6 +16,7 @@ import {
   analysisStyle,
   featureStyle,
   poiStyle,
+  osrmRouteStyle,
   routeLineStyle,
   stopStyle,
   targetStyle,
@@ -81,6 +82,7 @@ export function useMapInstance(containerRef) {
 
   /** Ulaşım modülü: hat çizgileri ve duraklar. */
   const routeLineSourceRef = useRef(null)
+  const osrmRouteSourceRef = useRef(null)
   const stopSourceRef = useRef(null)
   const stopLayerRef = useRef(null)
 
@@ -127,6 +129,9 @@ export function useMapInstance(containerRef) {
     const routeLineSource = new VectorSource()
     routeLineSourceRef.current = routeLineSource
 
+    const osrmRouteSource = new VectorSource()
+    osrmRouteSourceRef.current = osrmRouteSource
+
     const stopSource = new VectorSource()
     stopSourceRef.current = stopSource
 
@@ -156,6 +161,10 @@ export function useMapInstance(containerRef) {
         poiWms,
         // Hat çizgisi durakların altında kalsın.
         new VectorLayer({ source: routeLineSource, style: routeLineStyle }),
+        // OSRM rotası kesikli yardımcı hattın üstünde, durakların
+        // altında: yol çizgisi hattı örtsün ama durak işaretleri ve
+        // sıra numaraları rotanın üstünde kalsın.
+        new VectorLayer({ source: osrmRouteSource, style: osrmRouteStyle }),
         stopLayer,
         // Konum analizi ısı haritası POI'lerin ÜSTÜNDE.
         //
@@ -223,6 +232,7 @@ export function useMapInstance(containerRef) {
     locationAnalysisRef,
     locationAreaSourceRef,
     routeLineSourceRef,
+    osrmRouteSourceRef,
     stopSourceRef,
     stopLayerRef,
     poiWmsRef,

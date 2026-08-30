@@ -5,3 +5,7 @@ riderModule.iml
 /_ReSharper.Caches/
 .idea/
 .claude/
+
+# OSRM verisi: 643 MB cikarim + birkac GB on isleme ciktisi.
+# scripts/osrm-setup.sh yeniden uretiyor.
+osrm/

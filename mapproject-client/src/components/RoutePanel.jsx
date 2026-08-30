@@ -4,6 +4,19 @@ import './RoutePanel.css'
 
 const EMPTY_ROUTE = { id: null, name: '', color: ROUTE_COLORS[0], isActive: true }
 
+/** 18320 -> "18,3 km" */
+function formatDistance(metres) {
+  return `${(metres / 1000).toLocaleString('tr-TR', { maximumFractionDigits: 1 })} km`
+}
+
+/** 4260 -> "1 sa 11 dk" */
+function formatDuration(seconds) {
+  const total = Math.round(seconds / 60)
+  const hours = Math.floor(total / 60)
+  const minutes = total % 60
+  return hours > 0 ? `${hours} sa ${minutes} dk` : `${minutes} dk`
+}
+
 /**
  * Güzergah Yönetimi paneli.
  *
@@ -20,11 +33,15 @@ export default function RoutePanel({
   selectedRouteId,
   canManage,
   isAddingStop,
+  isBuildingRoute,
+  hiddenRouteIds,
   error,
   onSelectRoute,
   onSaveRoute,
   onDeleteRoute,
   onToggleAddStop,
+  onToggleRouteVisible,
+  onBuildRoute,
   onReorder,
   onDeleteStop,
   onFocusStop,
@@ -94,7 +111,21 @@ export default function RoutePanel({
         {routes.length === 0 && <li className="route-panel__empty">Henüz güzergah yok.</li>}
 
         {routes.map((route) => (
-          <li key={route.id}>
+          <li key={route.id} className="route-panel__row">
+            {/* Katman kontrolü: hattı haritadan kaldırır ama listede
+                bırakır. Onay kutusu görünür duruyor - göz simgesi gibi
+                bir şeyin açık mı kapalı mı olduğu tahmin gerektiriyor. */}
+            <input
+              type="checkbox"
+              className="route-panel__toggle"
+              id={`route-visible-${route.id}`}
+              checked={!hiddenRouteIds.has(route.id)}
+              onChange={() => onToggleRouteVisible(route.id)}
+            />
+            <label className="route-panel__sr-only" htmlFor={`route-visible-${route.id}`}>
+              {route.name} haritada görünsün
+            </label>
+
             <button
               type="button"
               className={
@@ -218,6 +249,39 @@ export default function RoutePanel({
               ))}
             </ol>
           )}
+
+          {/* --- OSRM rotası --- */}
+          <div className="route-panel__route-info">
+            {selected.routeWkt ? (
+              <p className="route-panel__route-stats">
+                <strong>Rota:</strong> {formatDistance(selected.routeDistance)} ·{' '}
+                {formatDuration(selected.routeDuration)}
+              </p>
+            ) : (
+              <p className="route-panel__route-stats route-panel__route-stats--empty">
+                Rota üretilmedi. Duraklar kesikli çizgiyle bağlı.
+              </p>
+            )}
+
+            {canManage && (
+              <button
+                type="button"
+                className="route-panel__build"
+                disabled={isBuildingRoute || selected.stops.length < 2}
+                onClick={() => onBuildRoute(selected.id)}
+              >
+                {isBuildingRoute
+                  ? 'Hesaplanıyor…'
+                  : selected.routeWkt
+                    ? 'Rotayı yenile'
+                    : 'Rota Oluştur'}
+              </button>
+            )}
+
+            {canManage && selected.stops.length < 2 && (
+              <p className="route-panel__hint">Rota için en az iki durak gerekiyor.</p>
+            )}
+          </div>
 
           {canManage && (
             <>

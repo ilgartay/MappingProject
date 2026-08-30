@@ -18,6 +18,7 @@ import { analyzeIntersection } from '../api/analysis'
 import { createPoi, deletePoi, fetchCategories, fetchPois } from '../api/poi'
 import { criteriaToParam, fetchProvince, fetchProvinces, validateAnalysis } from '../api/location'
 import {
+  buildRoute,
   createRoute,
   createStop,
   deleteRoute,
@@ -84,6 +85,7 @@ export default function MapView() {
     locationAnalysisRef,
     locationAreaSourceRef,
     routeLineSourceRef,
+    osrmRouteSourceRef,
     stopSourceRef,
     stopLayerRef,
     poiWmsRef,
@@ -128,6 +130,12 @@ export default function MapView() {
   const [pendingStop, setPendingStop] = useState(null)
   const [selectedStop, setSelectedStop] = useState(null)
   const [transportError, setTransportError] = useState('')
+  const [isBuildingRoute, setIsBuildingRoute] = useState(false)
+
+  // Katman kontrolü: haritada gizlenen güzergahların id'leri.
+  // Gizlemek "yok saymak" değil; kayıt yerinde duruyor, yalnızca
+  // çizilmiyor - listede de görünmeye devam ediyor.
+  const [hiddenRouteIds, setHiddenRouteIds] = useState(() => new Set())
   const [pendingPoi, setPendingPoi] = useState(null)
   const [selectedPoi, setSelectedPoi] = useState(null)
   const [isConfirmingPoiDelete, setIsConfirmingPoiDelete] = useState(false)
@@ -261,15 +269,20 @@ export default function MapView() {
    * gerekiyor - ayrıca "hangisi değişti" hesabı tutmak gereksiz.
    */
   const drawRoutes = useCallback(
-    (routeList) => {
+    (routeList, hidden) => {
       const stopSource = stopSourceRef.current
       const lineSource = routeLineSourceRef.current
-      if (!stopSource || !lineSource) return
+      const osrmSource = osrmRouteSourceRef.current
+      if (!stopSource || !lineSource || !osrmSource) return
 
       stopSource.clear()
       lineSource.clear()
+      osrmSource.clear()
 
       for (const route of routeList) {
+        // Kapatılan güzergah hiç çizilmiyor: durakları da, rotası da.
+        if (hidden.has(route.id)) continue
+
         const coordinates = []
 
         for (const stop of route.stops) {
@@ -285,24 +298,35 @@ export default function MapView() {
           coordinates.push(feature.getGeometry().getCoordinates())
         }
 
-        // İki durak yoksa çizilecek hat da yok.
-        if (coordinates.length > 1) {
+        // OSRM rotası varsa asıl yol o; kesikli yardımcı hat yalnızca
+        // rota üretilmemişken durak sırasını göstermek için çiziliyor.
+        if (route.routeWkt) {
+          const osrmLine = wktToFeature(route.routeWkt)
+          osrmLine.set('routeColor', route.color)
+          osrmSource.addFeature(osrmLine)
+        } else if (coordinates.length > 1) {
           const line = new Feature(new LineString(coordinates))
           line.set('routeColor', route.color)
           lineSource.addFeature(line)
         }
       }
     },
-    [stopSourceRef, routeLineSourceRef],
+    [stopSourceRef, routeLineSourceRef, osrmRouteSourceRef],
   )
 
   const loadRoutes = useCallback(() => {
     return fetchRoutes().then((list) => {
       setRoutes(list)
-      drawRoutes(list)
       return list
     })
-  }, [drawRoutes])
+  }, [])
+
+  // Harita, güzergah listesinin ve katman anahtarlarının aynası. Çizimi
+  // tek bir yerden yapmak, "listeyi güncelledim ama haritayı unuttum"
+  // durumunu baştan imkansız kılıyor.
+  useEffect(() => {
+    drawRoutes(routes, hiddenRouteIds)
+  }, [routes, hiddenRouteIds, drawRoutes])
 
   // --- Güzergahları yükle ---
   useEffect(() => {
@@ -312,7 +336,6 @@ export default function MapView() {
       .then((list) => {
         if (cancelled) return
         setRoutes(list)
-        drawRoutes(list)
       })
       .catch((err) => {
         if (!cancelled && err.response?.status !== 401) {
@@ -323,7 +346,7 @@ export default function MapView() {
     return () => {
       cancelled = true
     }
-  }, [drawRoutes])
+  }, [])
 
   // --- İl listesini yükle ---
   useEffect(() => {
@@ -809,8 +832,11 @@ export default function MapView() {
   const handleReorder = useCallback(
     async (routeId, stopIds) => {
       try {
-        await reorderStops(routeId, stopIds)
-        setTransportError('')
+        // Sunucu sırayı kaydedip rotayı OSRM'e yeniden hesaplatıyor.
+        // Rota güncellenemediyse sıralama yine de kaydedilmiş oluyor ve
+        // sebebi routeWarning ile geliyor.
+        const updated = await reorderStops(routeId, stopIds)
+        setTransportError(updated?.routeWarning ?? '')
         await loadRoutes()
       } catch (err) {
         setTransportError(err.response?.data?.message ?? 'Sıralama kaydedilemedi.')
@@ -818,6 +844,39 @@ export default function MapView() {
     },
     [loadRoutes],
   )
+
+  /** "Rota Oluştur": durakların üzerinden geçen yolu OSRM'e hesaplatır. */
+  const handleBuildRoute = useCallback(
+    async (routeId) => {
+      setIsBuildingRoute(true)
+
+      try {
+        await buildRoute(routeId)
+        setTransportError('')
+        await loadRoutes()
+      } catch (err) {
+        setTransportError(err.response?.data?.message ?? 'Rota oluşturulamadı.')
+      } finally {
+        setIsBuildingRoute(false)
+      }
+    },
+    [loadRoutes],
+  )
+
+  /** Katman kontrolü: güzergahı haritada gösterir / gizler. */
+  const handleToggleRouteVisible = useCallback((routeId) => {
+    setHiddenRouteIds((current) => {
+      const next = new Set(current)
+
+      if (next.has(routeId)) {
+        next.delete(routeId)
+      } else {
+        next.add(routeId)
+      }
+
+      return next
+    })
+  }, [])
 
   /** Listeden bir durağa tıklanınca haritada ona uçar ve bilgisini açar. */
   const handleFocusStop = useCallback(
@@ -1034,6 +1093,10 @@ export default function MapView() {
           onDeleteRoute={handleDeleteRoute}
           onToggleAddStop={() => setActiveTool((tool) => (tool === 'Stop' ? null : 'Stop'))}
           onReorder={handleReorder}
+          onBuildRoute={handleBuildRoute}
+          isBuildingRoute={isBuildingRoute}
+          hiddenRouteIds={hiddenRouteIds}
+          onToggleRouteVisible={handleToggleRouteVisible}
           onDeleteStop={handleDeleteStop}
           onFocusStop={handleFocusStop}
           onClose={() => setIsRoutePanelOpen(false)}

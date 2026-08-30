@@ -5,6 +5,7 @@ import MapPage from './pages/MapPage'
 import AdminLayout from './pages/admin/AdminLayout'
 import UsersPage from './pages/admin/UsersPage'
 import PoiPage from './pages/admin/PoiPage'
+import TransportPage from './pages/admin/TransportPage'
 import RolesPage from './pages/admin/RolesPage'
 
 export default function App() {
@@ -35,6 +36,7 @@ export default function App() {
         <Route path="users" element={<UsersPage />} />
         <Route path="roles" element={<RolesPage />} />
         <Route path="poi" element={<PoiPage />} />
+        <Route path="transport" element={<TransportPage />} />
       </Route>
 
       {/* Bilinmeyen her adres haritaya gider; giriş yoksa ProtectedRoute login'e atar. */}

@@ -30,6 +30,14 @@ public interface ITransportService
 
     Task<bool> DeleteStopAsync(int id);
 
-    /// <summary>Sürükle-bırak sonrası sırayı kaydeder.</summary>
+    /// <summary>
+    /// Sürükle-bırak sonrası sırayı kaydeder ve rotayı yeniden hesaplar.
+    /// </summary>
     Task<RouteDto?> ReorderStopsAsync(int routeId, StopOrderDto dto);
+
+    /// <summary>
+    /// Durakların üzerinden geçen sürüş rotasını OSRM'den ister ve
+    /// güzergaha kaydeder. En az iki durak gerekiyor.
+    /// </summary>
+    Task<RouteDto> BuildRouteAsync(int routeId, CancellationToken cancellationToken = default);
 }

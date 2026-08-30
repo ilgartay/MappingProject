@@ -55,6 +55,10 @@ builder.Services.Configure<JwtSettings>(
 builder.Services.Configure<GeoServerSettings>(
     builder.Configuration.GetSection(GeoServerSettings.SectionName));
 
+// Rota sunucusu (Docker'daki OSRM).
+builder.Services.Configure<OsrmSettings>(
+    builder.Configuration.GetSection(OsrmSettings.SectionName));
+
 builder.Services.AddBusinessServices();
 
 var jwtSettings = builder.Configuration

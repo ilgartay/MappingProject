@@ -116,6 +116,24 @@ public class TransportController : ApiControllerBase
         }
     }
 
+    /// <summary>
+    /// "Rota Oluştur": durakların üzerinden geçen yolu OSRM'den alıp
+    /// güzergaha kaydeder.
+    /// </summary>
+    [HttpPost("routes/{id:int}/route")]
+    [RequirePermission("route.manage")]
+    public async Task<IActionResult> BuildRoute(int id)
+    {
+        try
+        {
+            return Ok(await _transportService.BuildRouteAsync(id, HttpContext.RequestAborted));
+        }
+        catch (Exception ex)
+        {
+            return HandleError(ex);
+        }
+    }
+
     // --- Durak ---
 
     [HttpPost("stops")]

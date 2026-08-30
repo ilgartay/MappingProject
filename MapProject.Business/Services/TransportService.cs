@@ -1,6 +1,7 @@
 using MapProject.Business.Dtos;
 using MapProject.Business.Exceptions;
 using MapProject.Business.Geo;
+using MapProject.Business.Routing;
 using MapProject.Data;
 using MapProject.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -11,10 +12,12 @@ namespace MapProject.Business.Services;
 public class TransportService : ITransportService
 {
     private readonly AppDbContext _context;
+    private readonly IOsrmClient _osrm;
 
-    public TransportService(AppDbContext context)
+    public TransportService(AppDbContext context, IOsrmClient osrm)
     {
         _context = context;
+        _osrm = osrm;
     }
 
     // --- Güzergah ---
@@ -97,6 +100,19 @@ public class TransportService : ITransportService
         return true;
     }
 
+    // --- Rota (OSRM) ---
+
+    public async Task<RouteDto> BuildRouteAsync(int routeId, CancellationToken cancellationToken = default)
+    {
+        var route = await TrackRouteAsync(routeId)
+            ?? throw new InvalidUserOperationException("Seçilen güzergah bulunamadı.");
+
+        await ApplyOsrmRouteAsync(route, cancellationToken);
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return (await GetRouteAsync(routeId))!;
+    }
+
     // --- Durak ---
 
     public async Task<StopDto> CreateStopAsync(StopSaveDto dto)
@@ -123,6 +139,7 @@ public class TransportService : ITransportService
         _context.Stops.Add(stop);
         await _context.SaveChangesAsync();
 
+        await RefreshRouteAsync(route.Id);
         return ToDto(stop, route);
     }
 
@@ -136,6 +153,7 @@ public class TransportService : ITransportService
         }
 
         var route = await FindRouteAsync(dto.RouteId);
+        var previousRouteId = stop.RouteId;
 
         // Durak başka güzergaha taşınıyorsa yeni hattın sonuna geçiyor:
         // eski sıra numarası yeni hatta bir başkasıyla çakışabilirdi.
@@ -155,6 +173,14 @@ public class TransportService : ITransportService
 
         await _context.SaveChangesAsync();
 
+        // Durak başka hatta taşındıysa iki hattın da rotası bozuldu.
+        await RefreshRouteAsync(route.Id);
+
+        if (previousRouteId != route.Id)
+        {
+            await RefreshRouteAsync(previousRouteId);
+        }
+
         return ToDto(stop, route);
     }
 
@@ -172,6 +198,7 @@ public class TransportService : ITransportService
 
         // Kalan durakların sırasında boşluk kalmasın (1,2,4 -> 1,2,3).
         await RenumberAsync(stop.RouteId);
+        await RefreshRouteAsync(stop.RouteId);
         return true;
     }
 
@@ -203,7 +230,19 @@ public class TransportService : ITransportService
         }
 
         await _context.SaveChangesAsync();
-        return await GetRouteAsync(routeId);
+
+        // Ödevin istediği otomatik güncelleme burada: sıra değişti, rota
+        // artık duraklara uymuyor, OSRM'e yeni istek gidiyor.
+        var warning = await RefreshRouteAsync(routeId);
+
+        var result = await GetRouteAsync(routeId);
+
+        if (result is not null)
+        {
+            result.RouteWarning = warning;
+        }
+
+        return result;
     }
 
     // --- Yardımcılar ---
@@ -246,6 +285,78 @@ public class TransportService : ITransportService
         }
     }
 
+    /// <summary>Değiştirmek üzere güzergahı duraklarıyla birlikte okur.</summary>
+    private Task<Route?> TrackRouteAsync(int routeId) =>
+        _context.Routes
+            .Include(r => r.Stops.OrderBy(s => s.Order))
+            .FirstOrDefaultAsync(r => r.Id == routeId);
+
+    /// <summary>
+    /// Durakları OSRM'e verip dönen çizgiyi güzergaha yazar.
+    /// SaveChanges çağıran tarafta.
+    /// </summary>
+    private async Task ApplyOsrmRouteAsync(Route route, CancellationToken cancellationToken)
+    {
+        var waypoints = route.Stops
+            .OrderBy(s => s.Order)
+            .Select(s => s.Geometry.Coordinate)
+            .ToList();
+
+        if (waypoints.Count < 2)
+        {
+            throw new InvalidUserOperationException(
+                "Rota oluşturmak için güzergahta en az iki durak olmalı.");
+        }
+
+        var result = await _osrm.GetRouteAsync(waypoints, cancellationToken);
+
+        route.RouteGeometry = result.Geometry;
+        route.RouteDistance = result.DistanceMeters;
+        route.RouteDuration = result.DurationSeconds;
+        route.RouteBuiltAt = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Duraklar değiştikten sonra rotayı yeniden hesaplar. Sorun çıkarsa
+    /// açıklama metnini döndürür, yoksa null.
+    ///
+    /// Yalnızca daha önce rotası üretilmiş güzergahlara dokunuyor: hiç
+    /// "Rota Oluştur" denmemiş bir hatta durak eklemek OSRM'e istek
+    /// atmamalı, kullanıcı henüz rota istemedi.
+    ///
+    /// Hesaplama başarısızsa eski çizgiyi SİLİYORUZ. Bırakmak daha
+    /// zararsız görünüyor ama değil: çizgi artık durak sırasına uymuyor
+    /// ve haritada yanlış bir rotayı doğruymuş gibi gösterirdi. Boş
+    /// harita "rota yok" der, yanlış rota ise yalan söyler.
+    /// </summary>
+    private async Task<string?> RefreshRouteAsync(int routeId)
+    {
+        var route = await TrackRouteAsync(routeId);
+
+        if (route?.RouteGeometry is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            await ApplyOsrmRouteAsync(route, CancellationToken.None);
+        }
+        catch (Exception ex) when (ex is OsrmException or InvalidUserOperationException)
+        {
+            route.RouteGeometry = null;
+            route.RouteDistance = null;
+            route.RouteDuration = null;
+            route.RouteBuiltAt = null;
+            await _context.SaveChangesAsync();
+
+            return $"Durak sırası kaydedildi ama rota güncellenemedi: {ex.Message}";
+        }
+
+        await _context.SaveChangesAsync();
+        return null;
+    }
+
     /// <summary>Silme sonrası sıra numaralarını 1'den yeniden dizer.</summary>
     private async Task RenumberAsync(int routeId)
     {
@@ -271,6 +382,10 @@ public class TransportService : ITransportService
             IsActive = route.IsActive,
             CreatedDate = route.CreatedDate,
             ModifiedDate = route.ModifiedDate,
+            RouteWkt = route.RouteGeometry?.AsText(),
+            RouteDistance = route.RouteDistance,
+            RouteDuration = route.RouteDuration,
+            RouteBuiltAt = route.RouteBuiltAt,
             Stops = route.Stops.Select(s => ToDto(s, route)).ToList()
         };
 

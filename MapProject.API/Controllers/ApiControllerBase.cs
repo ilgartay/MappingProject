@@ -36,6 +36,14 @@ public abstract class ApiControllerBase : ControllerBase
                     StatusCodes.Status503ServiceUnavailable,
                     new { message = "Harita servisine (GeoServer) şu an ulaşılamıyor." });
 
+            // Rota sunucusu da ayrı bir dış servis; aynı gerekçeyle 503.
+            case OsrmException:
+                _logger.LogError(exception, "OSRM hatası: {Path}", HttpContext.Request.Path);
+
+                return StatusCode(
+                    StatusCodes.Status503ServiceUnavailable,
+                    new { message = exception.Message });
+
             default:
                 // Beklenmeyen hata. Mesajı istemciye vermiyoruz - iç detay
                 // (bağlantı dizesi, dosya yolu, SQL) sızdırabilir. Sunucuya loglayıp

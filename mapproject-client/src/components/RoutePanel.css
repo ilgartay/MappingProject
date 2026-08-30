@@ -319,3 +319,78 @@
     max-height: 60%;
   }
 }
+
+/* --- Katman kontrolü (güzergah aç/kapat) --- */
+
+.route-panel__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.route-panel__toggle {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: var(--brand);
+  cursor: pointer;
+}
+
+.route-panel__row .route-panel__route {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Onay kutusunun etiketi ekranda değil ama ekran okuyucuda var:
+   kutunun neyi açıp kapattığı sesli okumada da anlaşılsın. */
+.route-panel__sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* --- OSRM rotası --- */
+
+.route-panel__route-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 10px 0 4px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.route-panel__route-stats {
+  margin: 0;
+  font-size: 0.8rem;
+}
+
+.route-panel__route-stats--empty {
+  color: var(--text-muted);
+}
+
+.route-panel__build {
+  padding: 8px 12px;
+  border: none;
+  border-radius: 8px;
+  background: var(--brand);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 600;
+  transition: background 0.15s;
+}
+
+.route-panel__build:hover:not(:disabled) {
+  background: var(--brand-dark);
+}
+
+.route-panel__build:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

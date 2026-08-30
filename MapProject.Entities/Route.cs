@@ -1,3 +1,5 @@
+using NetTopologySuite.Geometries;
+
 namespace MapProject.Entities;
 
 /// <summary>
@@ -21,6 +23,25 @@ public class Route : IModifiable
 
     /// <summary>1-N: bir güzergahın birden çok durağı var.</summary>
     public ICollection<Stop> Stops { get; set; } = [];
+
+    /// <summary>
+    /// rota_geom - OSRM'in duraklardan geçerek hesapladığı yol çizgisi.
+    ///
+    /// Duraklardan türetilebilir bir veri ama saklıyoruz: her harita
+    /// açılışında 10 durak için OSRM'e gitmek hem yavaş hem de OSRM
+    /// kapalıyken hattı görünmez yapardı. Sıra değişince yeniden
+    /// hesaplanıyor.
+    /// </summary>
+    public LineString? RouteGeometry { get; set; }
+
+    /// <summary>rota_mesafe - metre. OSRM'in verdiği sürüş mesafesi.</summary>
+    public double? RouteDistance { get; set; }
+
+    /// <summary>rota_sure - saniye. OSRM'in verdiği tahmini süre.</summary>
+    public double? RouteDuration { get; set; }
+
+    /// <summary>rota_tarih - rotanın en son ne zaman üretildiği.</summary>
+    public DateTime? RouteBuiltAt { get; set; }
 
     public DateTime CreatedDate { get; set; }
     public DateTime? ModifiedDate { get; set; }
