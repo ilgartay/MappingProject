@@ -13,26 +13,44 @@ function formatRemaining(ms) {
   return `${minutes}:${seconds}`
 }
 
-export default function MapPage() {
-  const { username, expiresAt, logout, hasPermission } = useAuth()
-
-  // Yönetim bağlantısı sadece yetkisi olana görünsün.
-  const canManage = hasPermission('user.manage') || hasPermission('role.manage')
+/**
+ * Oturum sayacı. Asıl çıkış işlemini AuthContext yapıyor; burası
+ * yalnızca kalan süreyi gösteriyor.
+ *
+ * Kendi bileşeni olmasının sebebi başlıkta düzen değil, başarım:
+ * saniyede bir değişen bir durum MapPage'de dursaydı, MapPage'in
+ * altındaki her şey - haritanın tamamı - saniyede bir yeniden
+ * render edilirdi. Durum burada kalınca yenilenen tek şey bu span.
+ */
+function SessionTimer({ expiresAt }) {
   const [remaining, setRemaining] = useState(() =>
     expiresAt ? getRemainingMs(expiresAt) : 0,
   )
 
-  // Oturum sayacı. Asıl çıkış işlemini AuthContext yapıyor;
-  // burası sadece kalan süreyi gösteriyor.
   useEffect(() => {
     if (!expiresAt) return
 
+    // İlk değeri useState hesaplıyor; burada tekrar yazmak gereksiz
+    // bir render turu açardı.
     const interval = setInterval(() => {
       setRemaining(getRemainingMs(expiresAt))
     }, 1000)
 
     return () => clearInterval(interval)
   }, [expiresAt])
+
+  return (
+    <span className="map-header__timer" title="Oturum süresi">
+      {formatRemaining(remaining)}
+    </span>
+  )
+}
+
+export default function MapPage() {
+  const { username, expiresAt, logout, hasPermission } = useAuth()
+
+  // Yönetim bağlantısı sadece yetkisi olana görünsün.
+  const canManage = hasPermission('user.manage') || hasPermission('role.manage')
 
   return (
     <div className="map-page">
@@ -47,9 +65,7 @@ export default function MapPage() {
               Yönetim
             </Link>
           )}
-          <span className="map-header__timer" title="Oturum süresi">
-            {formatRemaining(remaining)}
-          </span>
+          <SessionTimer expiresAt={expiresAt} />
           <span className="map-header__user">{username}</span>
           <button type="button" className="map-header__logout" onClick={logout}>
             Çıkış
