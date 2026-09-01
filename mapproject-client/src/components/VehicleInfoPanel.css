@@ -1,0 +1,27 @@
+.vehicle-panel__progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.vehicle-panel__bar {
+  flex: 1;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+/* Genişlik her yayında değişiyor; geçişi yumuşatmak aracı zıplamış
+   değil ilerliyor gibi gösteriyor. */
+.vehicle-panel__fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.4s linear;
+}
+
+.vehicle-panel__percent {
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}

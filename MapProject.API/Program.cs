@@ -1,8 +1,11 @@
 using System.Text;
+using System.Text.Json;
+using MapProject.API.Hubs;
 using MapProject.Business;
 using MapProject.Data;
 using MapProject.Business.Services;
 using MapProject.Business.Settings;
+using MapProject.Business.Simulation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -59,7 +62,24 @@ builder.Services.Configure<GeoServerSettings>(
 builder.Services.Configure<OsrmSettings>(
     builder.Configuration.GetSection(OsrmSettings.SectionName));
 
+// Araç simülasyonunun hızı ve yayın sıklığı.
+builder.Services.Configure<SimulationSettings>(
+    builder.Configuration.GetSection(SimulationSettings.SectionName));
+
 builder.Services.AddBusinessServices();
+
+// DİKKAT - alan adlarının biçimi: MVC controller'ları JSON'u varsayılan
+// olarak camelCase üretiyor, SignalR ise üretmiyor - C#'taki adı aynen
+// gönderiyor. Aynı VehicleState nesnesi REST'ten "routeId", SignalR'dan
+// "RouteId" diye gelirdi ve istemci ikisini ayrı ayrı ele almak zorunda
+// kalırdı. İkisini burada eşitliyoruz.
+builder.Services.AddSignalR().AddJsonProtocol(options =>
+{
+    options.PayloadSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+});
+
+// Business "duyur" diyor, SignalR ile duyuran taraf API katmanında.
+builder.Services.AddSingleton<ISimulationBroadcaster, SignalRSimulationBroadcaster>();
 
 var jwtSettings = builder.Configuration
                       .GetSection(JwtSettings.SectionName)
@@ -98,6 +118,26 @@ builder.Services
             // Varsayılan 5 dakikalık tolerans var; token'ımız 10 dakika olduğu için sıfırlıyoruz.
             ClockSkew = TimeSpan.Zero
         };
+
+        // WebSocket el sıkışmasına Authorization başlığı eklenemiyor -
+        // tarayıcının WebSocket API'si başlık yazmaya izin vermiyor.
+        // SignalR bu yüzden token'ı access_token sorgu parametresiyle
+        // gönderiyor; yalnızca /hubs altındaki isteklerde kabul ediyoruz.
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+
+                if (!string.IsNullOrEmpty(accessToken) &&
+                    context.HttpContext.Request.Path.StartsWithSegments("/hubs"))
+                {
+                    context.Token = accessToken;
+                }
+
+                return Task.CompletedTask;
+            }
+        };
     });
 
 builder.Services.AddAuthorization();
@@ -108,7 +148,10 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins("http://localhost:5173")
             .AllowAnyHeader()
-            .AllowAnyMethod();
+            .AllowAnyMethod()
+            // SignalR el sıkışması kimlik bilgisi taşıyor; bu olmadan
+            // tarayıcı WebSocket yükseltmesini engelliyor.
+            .AllowCredentials();
     });
 });
 
@@ -135,4 +178,8 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// Canlı araç konumları buradan yayınlanıyor.
+app.MapHub<SimulationHub>("/hubs/simulation");
+
 app.Run();

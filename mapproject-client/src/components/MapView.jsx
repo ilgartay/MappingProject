@@ -27,6 +27,12 @@ import {
   reorderStops,
   updateRoute,
 } from '../api/transport'
+import {
+  createSimulationConnection,
+  fetchSimulations,
+  startSimulation,
+  stopSimulation,
+} from '../api/simulation'
 import { useAuth } from '../auth/useAuth'
 import { useMapInstance } from '../map/useMapInstance'
 import { geometryToWkt, wktToFeature } from '../map/wkt'
@@ -37,6 +43,7 @@ import LocationAnalysisPanel from './LocationAnalysisPanel'
 import RoutePanel from './RoutePanel'
 import SaveStopDialog from './SaveStopDialog'
 import StopInfoPanel from './StopInfoPanel'
+import VehicleInfoPanel from './VehicleInfoPanel'
 import DeletePoiDialog from './DeletePoiDialog'
 import PoiInfoPanel from './PoiInfoPanel'
 import PoiSearch from './PoiSearch'
@@ -88,6 +95,8 @@ export default function MapView() {
     osrmRouteSourceRef,
     stopSourceRef,
     stopLayerRef,
+    vehicleSourceRef,
+    vehicleLayerRef,
     poiWmsRef,
     poiSourceRef,
     poiLayerRef,
@@ -131,6 +140,23 @@ export default function MapView() {
   const [selectedStop, setSelectedStop] = useState(null)
   const [transportError, setTransportError] = useState('')
   const [isBuildingRoute, setIsBuildingRoute] = useState(false)
+
+  // --- Simülasyon ---
+  //
+  // simulations: güzergah id -> aracın son bilinen durumu.
+  // trackedRouteId: aynı anda tek hat takip ediliyor. Birden çoğuna izin
+  // verseydik kamera hangi aracın peşinden gideceğini bilemezdi.
+  const [simulations, setSimulations] = useState({})
+  const [trackedRouteId, setTrackedRouteId] = useState(null)
+  const [isSimulationBusy, setIsSimulationBusy] = useState(false)
+  // Açık bilgi kutusu, id olarak tutuluyor: nesneyi saklasaydık yüzde
+  // ilerledikçe kutudaki değer donup kalırdı.
+  const [vehicleRouteId, setVehicleRouteId] = useState(null)
+  // Sefer bitince araç ve bilgi kutusu bir anda kayboluyor; kısa bir not
+  // bırakmazsak kullanıcı ne olduğunu anlamıyor.
+  const [simulationNotice, setSimulationNotice] = useState('')
+  const noticeTimerRef = useRef(null)
+  const connectionRef = useRef(null)
 
   // Katman kontrolü: haritada gizlenen güzergahların id'leri.
   // Gizlemek "yok saymak" değil; kayıt yerinde duruyor, yalnızca
@@ -328,6 +354,161 @@ export default function MapView() {
     drawRoutes(routes, hiddenRouteIds)
   }, [routes, hiddenRouteIds, drawRoutes])
 
+  // --- Canlı yayın bağlantısı ---
+  //
+  // Bağlantı bir kez kuruluyor ve oturum boyunca açık kalıyor. Takip
+  // edilen hat değişince yeni bağlantı açmıyoruz, sadece SignalR
+  // grubunu değiştiriyoruz.
+  useEffect(() => {
+    const connection = createSimulationConnection()
+    connectionRef.current = connection
+
+    connection.on('VehicleMoved', (state) => {
+      // Araç son durağa vardı: son yayını aldık, kaydı düşürüyoruz.
+      //
+      // Bildirim setSimulations'ın dışında: durum güncelleyicinin içinde
+      // yan etki yapmak StrictMode'da iki kez çalışır.
+      if (state.isFinished) {
+        setSimulationNotice(`${state.routeName}: araç son durağa vardı.`)
+        clearTimeout(noticeTimerRef.current)
+        noticeTimerRef.current = setTimeout(() => setSimulationNotice(''), 6000)
+
+        setSimulations((current) => {
+          const next = { ...current }
+          delete next[state.routeId]
+          return next
+        })
+        return
+      }
+
+      setSimulations((current) => ({ ...current, [state.routeId]: state }))
+    })
+
+    // StrictMode geliştirmede efekti iki kez çalıştırıyor: ilk bağlantı
+    // daha start() bitmeden temizleniyor. Bekleyen bir start()'ın
+    // üstüne stop() çağırmak "Failed to start the HttpConnection before
+    // stop() was called" hatası veriyor, o yüzden kapatmayı start()
+    // sonuçlanana kadar erteliyoruz.
+    let isDisposed = false
+
+    connection
+      .start()
+      .then(() => {
+        if (isDisposed) connection.stop()
+      })
+      .catch(() => {
+        if (!isDisposed) setTransportError('Canlı takip bağlantısı kurulamadı.')
+      })
+
+    return () => {
+      isDisposed = true
+      connectionRef.current = null
+      clearTimeout(noticeTimerRef.current)
+
+      // Bağlantı kurulduysa hemen kapat; hâlâ kuruluyorsa yukarıdaki
+      // then bloğu kapatacak.
+      if (connection.state === 'Connected') connection.stop()
+    }
+  }, [])
+
+  // Sayfa açıldığında çalışan simülasyonları bir kez soruyoruz: yalnızca
+  // SignalR dinleseydik, simülasyon başladıktan sonra giren kullanıcı
+  // hangi hatlarda araç olduğunu hiç bilemezdi.
+  useEffect(() => {
+    let cancelled = false
+
+    fetchSimulations()
+      .then((list) => {
+        if (cancelled) return
+        setSimulations(Object.fromEntries(list.map((item) => [item.routeId, item])))
+      })
+      .catch(() => {
+        // Sessiz: simülasyon listesi uygulamanın çalışması için şart değil.
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Çalışan simülasyon listesini aralıklarla tazeliyoruz.
+  //
+  // Takibi bırakan istemci o hattın yayınını almıyor; sefer bittiğinde
+  // "bitti" mesajı da gelmiyor ve panel sonsuza kadar "araç yolda"
+  // derdi. Konum değil, yalnızca hangi hatlarda araç olduğu bilgisi
+  // buradan tazeleniyor - takip edilen hattın verisi SignalR'dan geldiği
+  // için daha taze, ona dokunmuyoruz.
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchSimulations()
+        .then((list) => {
+          setSimulations((current) => {
+            const next = Object.fromEntries(list.map((item) => [item.routeId, item]))
+
+            if (trackedRouteId !== null && current[trackedRouteId]) {
+              next[trackedRouteId] = current[trackedRouteId]
+            }
+
+            // Aynı hatlar koşuyorsa yeni nesne üretmiyoruz: her on
+            // saniyede bir boşuna render tetiklemenin anlamı yok.
+            const unchanged =
+              Object.keys(next).length === Object.keys(current).length &&
+              Object.keys(next).every((id) => id in current)
+
+            return unchanged ? current : next
+          })
+        })
+        .catch(() => {
+          // Sessiz: bir sonraki turda tekrar denenecek.
+        })
+    }, 10000)
+
+    return () => clearInterval(interval)
+  }, [trackedRouteId])
+
+  // Takip edilen hattın aracını haritaya çiziyoruz. Takip edilmeyen
+  // hatların aracı çizilmiyor - "Takip Et" zaten bunun için var.
+  useEffect(() => {
+    const source = vehicleSourceRef.current
+    if (!source) return
+
+    source.clear()
+
+    const state = trackedRouteId === null ? null : simulations[trackedRouteId]
+    if (!state) return
+
+    const feature = new Feature(new Point(fromLonLat([state.longitude, state.latitude])))
+    feature.set('routeColor', state.routeColor)
+    feature.set('heading', state.heading)
+    feature.set('routeId', state.routeId)
+    source.addFeature(feature)
+  }, [simulations, trackedRouteId, vehicleSourceRef])
+
+  // Kamera aracı görüş alanında tutuyor.
+  //
+  // Her yayında ortalasaydık kullanıcı haritayı kaydıramaz, sürekli geri
+  // çekilirdi. Bunun yerine araç kenara yaklaşınca bir kez ortalıyoruz.
+  useEffect(() => {
+    const map = mapRef.current
+    const state = trackedRouteId === null ? null : simulations[trackedRouteId]
+    if (!map || !state) return
+
+    const center = fromLonLat([state.longitude, state.latitude])
+    const [minX, minY, maxX, maxY] = map.getView().calculateExtent(map.getSize())
+    const marginX = (maxX - minX) * 0.2
+    const marginY = (maxY - minY) * 0.2
+
+    const isComfortablyInside =
+      center[0] > minX + marginX &&
+      center[0] < maxX - marginX &&
+      center[1] > minY + marginY &&
+      center[1] < maxY - marginY
+
+    if (!isComfortablyInside) {
+      map.getView().animate({ center, duration: 500 })
+    }
+  }, [simulations, trackedRouteId, mapRef])
+
   // --- Güzergahları yükle ---
   useEffect(() => {
     let cancelled = false
@@ -517,6 +698,17 @@ export default function MapView() {
     if (activeTool || pending || pendingPoi || selected || selectedPoi || selectedStop) return
 
     function onClick(event) {
+      // Araç en üstteki katman; hareket ettiği için ona basmak zaten zor,
+      // altındaki bir durağı seçmek büsbütün imkansız kılardı.
+      const vehicleFeature = map.forEachFeatureAtPixel(event.pixel, (f) => f, {
+        layerFilter: (layer) => layer === vehicleLayerRef.current,
+      })
+
+      if (vehicleFeature) {
+        setVehicleRouteId(vehicleFeature.get('routeId'))
+        return
+      }
+
       // Duraklara önce bakıyoruz: durak işaretleri POI ve çizimlerin
       // üstünde duruyor, alttakini seçmek üstündekini tıklanamaz yapardı.
       const stopFeature = map.forEachFeatureAtPixel(event.pixel, (f) => f, {
@@ -571,7 +763,8 @@ export default function MapView() {
         layerFilter: (layer) =>
           layer === featureLayerRef.current ||
           layer === poiLayerRef.current ||
-          layer === stopLayerRef.current,
+          layer === stopLayerRef.current ||
+          layer === vehicleLayerRef.current,
       })
       element.style.cursor = overFeature ? 'pointer' : ''
     }
@@ -595,6 +788,7 @@ export default function MapView() {
     featureLayerRef,
     poiLayerRef,
     stopLayerRef,
+    vehicleLayerRef,
   ])
 
   // --- Seçili objenin geometrisini düzenlenebilir yap ---
@@ -863,6 +1057,84 @@ export default function MapView() {
     [loadRoutes],
   )
 
+  /**
+   * Bir güzergahın canlı yayınına katılır. Aynı anda tek hat takip
+   * ediliyor: yenisine geçerken öncekinin grubundan çıkıyoruz, yoksa
+   * artık izlenmeyen hattın konumları da gelmeye devam ederdi.
+   */
+  const trackRoute = useCallback(
+    async (routeId) => {
+      const connection = connectionRef.current
+      if (!connection) return
+
+      try {
+        if (trackedRouteId !== null && trackedRouteId !== routeId) {
+          await connection.invoke('LeaveRoute', trackedRouteId)
+        }
+
+        await connection.invoke('JoinRoute', routeId)
+        setTrackedRouteId(routeId)
+        setTransportError('')
+      } catch {
+        setTransportError('Canlı takip başlatılamadı.')
+      }
+    },
+    [trackedRouteId],
+  )
+
+  const untrackRoute = useCallback(async () => {
+    const connection = connectionRef.current
+
+    if (connection && trackedRouteId !== null) {
+      try {
+        await connection.invoke('LeaveRoute', trackedRouteId)
+      } catch {
+        // Bağlantı zaten kopmuşsa grubu bırakmaya gerek de yok.
+      }
+    }
+
+    setTrackedRouteId(null)
+    setVehicleRouteId(null)
+  }, [trackedRouteId])
+
+  /** "Simülasyonu Başlat" - başlatan kişi aracı görsün diye takibe de alıyoruz. */
+  const handleStartSimulation = useCallback(
+    async (routeId) => {
+      setIsSimulationBusy(true)
+
+      try {
+        const state = await startSimulation(routeId)
+        setSimulations((current) => ({ ...current, [routeId]: state }))
+        setTransportError('')
+        await trackRoute(routeId)
+      } catch (err) {
+        setTransportError(err.response?.data?.message ?? 'Simülasyon başlatılamadı.')
+      } finally {
+        setIsSimulationBusy(false)
+      }
+    },
+    [trackRoute],
+  )
+
+  const handleStopSimulation = useCallback(async (routeId) => {
+    setIsSimulationBusy(true)
+
+    try {
+      await stopSimulation(routeId)
+      setSimulations((current) => {
+        const next = { ...current }
+        delete next[routeId]
+        return next
+      })
+      setVehicleRouteId(null)
+      setTransportError('')
+    } catch (err) {
+      setTransportError(err.response?.data?.message ?? 'Simülasyon durdurulamadı.')
+    } finally {
+      setIsSimulationBusy(false)
+    }
+  }, [])
+
   /** Katman kontrolü: güzergahı haritada gösterir / gizler. */
   const handleToggleRouteVisible = useCallback((routeId) => {
     setHiddenRouteIds((current) => {
@@ -1095,11 +1367,28 @@ export default function MapView() {
           onReorder={handleReorder}
           onBuildRoute={handleBuildRoute}
           isBuildingRoute={isBuildingRoute}
+          simulations={simulations}
+          simulationNotice={simulationNotice}
+          trackedRouteId={trackedRouteId}
+          isSimulationBusy={isSimulationBusy}
+          onStartSimulation={handleStartSimulation}
+          onStopSimulation={handleStopSimulation}
+          onTrack={trackRoute}
+          onUntrack={untrackRoute}
           hiddenRouteIds={hiddenRouteIds}
           onToggleRouteVisible={handleToggleRouteVisible}
           onDeleteStop={handleDeleteStop}
           onFocusStop={handleFocusStop}
           onClose={() => setIsRoutePanelOpen(false)}
+        />
+      )}
+
+      {/* Araç bilgi kutusu. Durum id ile tutuluyor, içerik canlı listeden
+          okunuyor: yüzde her yayında kendiliğinden güncelleniyor. */}
+      {vehicleRouteId !== null && simulations[vehicleRouteId] && (
+        <VehicleInfoPanel
+          vehicle={simulations[vehicleRouteId]}
+          onClose={() => setVehicleRouteId(null)}
         />
       )}
 

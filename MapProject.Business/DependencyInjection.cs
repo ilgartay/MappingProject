@@ -3,6 +3,7 @@ using System.Text;
 using MapProject.Business.GeoServer;
 using MapProject.Business.Routing;
 using MapProject.Business.Services;
+using MapProject.Business.Simulation;
 using MapProject.Business.Settings;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -29,6 +30,10 @@ public static class DependencyInjection
         services.AddScoped<ITransportService, TransportService>();
         services.AddScoped<ILocationAnalysisService, LocationAnalysisService>();
         services.AddScoped<IDatabaseInitializer, DatabaseInitializer>();
+
+        // Tekil: çalışan simülasyonlar isteklerden bağımsız yaşamalı.
+        // Scoped olsaydı "başlat" isteği bittiği anda araç da dururdu.
+        services.AddSingleton<ISimulationService, SimulationService>();
         services.AddGeoServerClient();
         services.AddOsrmClient();
         return services;

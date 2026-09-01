@@ -1,5 +1,5 @@
 import Point from 'ol/geom/Point'
-import { Circle, Fill, RegularShape, Stroke, Style, Text } from 'ol/style'
+import { Circle, Fill, Icon, RegularShape, Stroke, Style, Text } from 'ol/style'
 
 /** Renk bilgisi gelmezse kullanılacak yedek. */
 const FALLBACK_COLOR = '#009bff'
@@ -234,6 +234,46 @@ function arrowsAlong(line, spacing) {
   }
 
   return arrows
+}
+
+/**
+ * Simülasyondaki araç: yukarıdan görünen otobüs, gittiği yöne dönük.
+ *
+ * İkon SVG olarak üretiliyor çünkü rengi güzergaha göre değişiyor;
+ * hazır bir resim dosyası olsaydı her hat için ayrı dosya gerekirdi.
+ * Üretilen ikonlar renk başına saklanıyor - stil fonksiyonu saniyede
+ * birkaç kez çağrılıyor ve her seferinde yeni Icon kurmak boşuna iş.
+ */
+const vehicleIcons = new Map()
+
+function vehicleIcon(color) {
+  if (!vehicleIcons.has(color)) {
+    const svg =
+      `<svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 34 34">` +
+      `<rect x="10" y="4" width="14" height="26" rx="4.5" fill="${color}"` +
+      ` stroke="#ffffff" stroke-width="2.5"/>` +
+      `<rect x="12.5" y="7" width="9" height="5" rx="1.5" fill="#ffffff" opacity="0.95"/>` +
+      `<rect x="12.5" y="15" width="9" height="10" rx="1.5" fill="#ffffff" opacity="0.35"/>` +
+      `</svg>`
+
+    vehicleIcons.set(color, `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`)
+  }
+
+  return vehicleIcons.get(color)
+}
+
+export function vehicleStyle(feature) {
+  const color = feature.get('routeColor') ?? FALLBACK_COLOR
+
+  return new Style({
+    image: new Icon({
+      src: vehicleIcon(color),
+      // İkonun sivri ucu yukarı bakıyor; SignalR'dan gelen yön de
+      // kuzeyden saat yönünde derece, ikisi aynı sıfır noktasında.
+      rotation: ((feature.get('heading') ?? 0) * Math.PI) / 180,
+      rotateWithView: true,
+    }),
+  })
 }
 
 /**

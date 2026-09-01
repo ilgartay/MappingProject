@@ -17,6 +17,7 @@ import {
   featureStyle,
   poiStyle,
   osrmRouteStyle,
+  vehicleStyle,
   routeLineStyle,
   stopStyle,
   targetStyle,
@@ -85,6 +86,8 @@ export function useMapInstance(containerRef) {
   const osrmRouteSourceRef = useRef(null)
   const stopSourceRef = useRef(null)
   const stopLayerRef = useRef(null)
+  const vehicleSourceRef = useRef(null)
+  const vehicleLayerRef = useRef(null)
 
   const poiWmsRef = useRef(null)
   const poiSourceRef = useRef(null)
@@ -138,6 +141,12 @@ export function useMapInstance(containerRef) {
     const stopLayer = new VectorLayer({ source: stopSource, style: stopStyle })
     stopLayerRef.current = stopLayer
 
+    const vehicleSource = new VectorSource()
+    vehicleSourceRef.current = vehicleSource
+
+    const vehicleLayer = new VectorLayer({ source: vehicleSource, style: vehicleStyle })
+    vehicleLayerRef.current = vehicleLayer
+
     const poiWms = createPoiWmsLayer()
     poiWmsRef.current = poiWms
 
@@ -180,6 +189,9 @@ export function useMapInstance(containerRef) {
         new VectorLayer({ source: areaSource, style: allowedAreaStyle }),
         new VectorLayer({ source: analysisSource, style: analysisStyle }),
         new VectorLayer({ source: targetSource, style: targetStyle }),
+        // Araç en üstte: hareket eden tek şey o, hiçbir şeyin altında
+        // kaybolmamalı ve tıklanabilir kalmalı.
+        vehicleLayer,
       ],
       view: new View({
         center: fromLonLat(TURKEY_CENTER),
@@ -235,6 +247,8 @@ export function useMapInstance(containerRef) {
     osrmRouteSourceRef,
     stopSourceRef,
     stopLayerRef,
+    vehicleSourceRef,
+    vehicleLayerRef,
     poiWmsRef,
     poiSourceRef,
     poiLayerRef,

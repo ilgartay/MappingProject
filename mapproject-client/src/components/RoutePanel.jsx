@@ -35,6 +35,10 @@ export default function RoutePanel({
   isAddingStop,
   isBuildingRoute,
   hiddenRouteIds,
+  simulations,
+  simulationNotice,
+  trackedRouteId,
+  isSimulationBusy,
   error,
   onSelectRoute,
   onSaveRoute,
@@ -42,6 +46,10 @@ export default function RoutePanel({
   onToggleAddStop,
   onToggleRouteVisible,
   onBuildRoute,
+  onStartSimulation,
+  onStopSimulation,
+  onTrack,
+  onUntrack,
   onReorder,
   onDeleteStop,
   onFocusStop,
@@ -71,6 +79,10 @@ export default function RoutePanel({
   }
 
   const selected = routes.find((r) => r.id === selectedRouteId) ?? null
+
+  // Seçili hatta çalışan araç ve onu takip edip etmediğimiz.
+  const running = selected ? simulations[selected.id] : null
+  const isTracking = selected != null && trackedRouteId === selected.id
 
   function handleSubmit(event) {
     event.preventDefault()
@@ -105,6 +117,9 @@ export default function RoutePanel({
       </header>
 
       {error && <p className="route-panel__error" role="alert">{error}</p>}
+      {simulationNotice && (
+        <p className="route-panel__notice" role="status">{simulationNotice}</p>
+      )}
 
       {/* --- Güzergah listesi --- */}
       <ul className="route-panel__routes">
@@ -282,6 +297,55 @@ export default function RoutePanel({
               <p className="route-panel__hint">Rota için en az iki durak gerekiyor.</p>
             )}
           </div>
+
+          {/* --- Simülasyon --- */}
+          {selected.routeWkt && (
+            <div className="route-panel__sim">
+              {running ? (
+                <p className="route-panel__sim-state">
+                  <span className="route-panel__pulse" style={{ background: selected.color }} />
+                  {/* Yüzde yalnızca takipteyken: takibi bıraktığımızda
+                      yayın da kesiliyor ve elimizdeki son değer olduğu
+                      yerde donuyor. Donmuş bir sayıyı canlıymış gibi
+                      göstermektense hiç göstermemek doğru. */}
+                  Araç yolda{isTracking ? ` · %${Math.round(running.progress)}` : ''}
+                </p>
+              ) : (
+                <p className="route-panel__sim-state route-panel__sim-state--idle">
+                  Bu hatta çalışan araç yok.
+                </p>
+              )}
+
+              {canManage && (
+                <button
+                  type="button"
+                  className="route-panel__sim-start"
+                  disabled={isSimulationBusy}
+                  onClick={() =>
+                    running ? onStopSimulation(selected.id) : onStartSimulation(selected.id)
+                  }
+                >
+                  {running ? 'Simülasyonu Durdur' : 'Simülasyonu Başlat'}
+                </button>
+              )}
+
+              {/* Takip yetki istemiyor: yayını izlemek veriyi
+                  değiştirmiyor, Ulaşım Kullanıcısı da görebilmeli. */}
+              {running && (
+                <button
+                  type="button"
+                  className={
+                    isTracking
+                      ? 'route-panel__sim-track route-panel__sim-track--on'
+                      : 'route-panel__sim-track'
+                  }
+                  onClick={() => (isTracking ? onUntrack() : onTrack(selected.id))}
+                >
+                  {isTracking ? 'Takibi Bırak' : 'Takip Et'}
+                </button>
+              )}
+            </div>
+          )}
 
           {canManage && (
             <>

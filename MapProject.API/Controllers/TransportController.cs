@@ -1,6 +1,7 @@
 using MapProject.API.Authorization;
 using MapProject.Business.Dtos;
 using MapProject.Business.Services;
+using MapProject.Business.Simulation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -20,11 +21,16 @@ namespace MapProject.API.Controllers;
 public class TransportController : ApiControllerBase
 {
     private readonly ITransportService _transportService;
+    private readonly ISimulationService _simulationService;
 
-    public TransportController(ITransportService transportService, ILogger<TransportController> logger)
+    public TransportController(
+        ITransportService transportService,
+        ISimulationService simulationService,
+        ILogger<TransportController> logger)
         : base(logger)
     {
         _transportService = transportService;
+        _simulationService = simulationService;
     }
 
     // --- Güzergah ---
@@ -127,6 +133,61 @@ public class TransportController : ApiControllerBase
         try
         {
             return Ok(await _transportService.BuildRouteAsync(id, HttpContext.RequestAborted));
+        }
+        catch (Exception ex)
+        {
+            return HandleError(ex);
+        }
+    }
+
+    // --- Simülasyon ---
+
+    /// <summary>
+    /// "Simülasyonu Başlat": araç ilk duraktan son durağa yürümeye
+    /// başlar, konumu SignalR ile yayınlanır.
+    ///
+    /// route.manage istiyor - bu yetki yalnızca Admin ve Ulaşım
+    /// Operatörü rollerinde. Takip etmek yetki istemiyor.
+    /// </summary>
+    [HttpPost("routes/{id:int}/simulation")]
+    [RequirePermission("route.manage")]
+    public async Task<IActionResult> StartSimulation(int id)
+    {
+        try
+        {
+            return Ok(await _simulationService.StartAsync(id, HttpContext.RequestAborted));
+        }
+        catch (Exception ex)
+        {
+            return HandleError(ex);
+        }
+    }
+
+    [HttpDelete("routes/{id:int}/simulation")]
+    [RequirePermission("route.manage")]
+    public IActionResult StopSimulation(int id)
+    {
+        try
+        {
+            return _simulationService.Stop(id) ? NoContent() : NotFound();
+        }
+        catch (Exception ex)
+        {
+            return HandleError(ex);
+        }
+    }
+
+    /// <summary>
+    /// O anda yürüyen simülasyonlar. Sayfayı sonradan açan kullanıcı
+    /// hangi hatlarda araç olduğunu buradan öğreniyor; yalnızca SignalR
+    /// dinleseydi bir sonraki yayına kadar hiçbir şey göremezdi.
+    /// </summary>
+    [HttpGet("simulations")]
+    public IActionResult GetSimulations()
+    {
+        try
+        {
+            return Ok(_simulationService.GetActive());
         }
         catch (Exception ex)
         {
