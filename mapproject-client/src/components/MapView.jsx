@@ -158,6 +158,19 @@ export default function MapView() {
   const noticeTimerRef = useRef(null)
   const connectionRef = useRef(null)
 
+  // Araç konumu saniyede 2,5 kez geliyor. Hepsini React durumuna
+  // yazsaydık MapView de saniyede 2,5 kez (StrictMode ile 5) yeniden
+  // render edilirdi - ölçtük, harita gözle görülür şekilde takılıyordu.
+  //
+  // Bu yüzden canlı veri ref'te duruyor ve haritayı doğrudan güncelliyor;
+  // React durumu yalnızca panel ve bilgi kutusundaki metin için, saniyede
+  // bir tazeleniyor. Harita akıcı kalıyor, ağaç boşuna diff'lenmiyor.
+  const vehiclesRef = useRef({})
+  const lastPublishRef = useRef(0)
+  // trackedRouteId'nin aynası: SignalR geri çağrısı bir kez kurulduğu
+  // için state'in güncel değerini göremez, ref görür.
+  const trackedRouteIdRef = useRef(null)
+
   // Katman kontrolü: haritada gizlenen güzergahların id'leri.
   // Gizlemek "yok saymak" değil; kayıt yerinde duruyor, yalnızca
   // çizilmiyor - listede de görünmeye devam ediyor.
@@ -354,6 +367,53 @@ export default function MapView() {
     drawRoutes(routes, hiddenRouteIds)
   }, [routes, hiddenRouteIds, drawRoutes])
 
+  /** Aracı haritaya çizer. React'ten bağımsız: doğrudan OpenLayers kaynağı. */
+  const drawVehicle = useCallback(
+    (state) => {
+      const source = vehicleSourceRef.current
+      if (!source) return
+
+      source.clear()
+      if (!state) return
+
+      const feature = new Feature(new Point(fromLonLat([state.longitude, state.latitude])))
+      feature.set('routeColor', state.routeColor)
+      feature.set('heading', state.heading)
+      feature.set('routeId', state.routeId)
+      source.addFeature(feature)
+    },
+    [vehicleSourceRef],
+  )
+
+  /**
+   * Kamerayı aracın peşinde tutar.
+   *
+   * Her yayında ortalasaydık kullanıcı haritayı kaydıramaz, sürekli geri
+   * çekilirdi. Bunun yerine araç kenara yaklaşınca bir kez ortalıyoruz.
+   */
+  const followVehicle = useCallback(
+    (state) => {
+      const map = mapRef.current
+      if (!map || !state) return
+
+      const center = fromLonLat([state.longitude, state.latitude])
+      const [minX, minY, maxX, maxY] = map.getView().calculateExtent(map.getSize())
+      const marginX = (maxX - minX) * 0.2
+      const marginY = (maxY - minY) * 0.2
+
+      const isComfortablyInside =
+        center[0] > minX + marginX &&
+        center[0] < maxX - marginX &&
+        center[1] > minY + marginY &&
+        center[1] < maxY - marginY
+
+      if (!isComfortablyInside) {
+        map.getView().animate({ center, duration: 500 })
+      }
+    },
+    [mapRef],
+  )
+
   // --- Canlı yayın bağlantısı ---
   //
   // Bağlantı bir kez kuruluyor ve oturum boyunca açık kalıyor. Takip
@@ -373,6 +433,10 @@ export default function MapView() {
         clearTimeout(noticeTimerRef.current)
         noticeTimerRef.current = setTimeout(() => setSimulationNotice(''), 6000)
 
+        delete vehiclesRef.current[state.routeId]
+
+        if (trackedRouteIdRef.current === state.routeId) drawVehicle(null)
+
         setSimulations((current) => {
           const next = { ...current }
           delete next[state.routeId]
@@ -381,7 +445,22 @@ export default function MapView() {
         return
       }
 
-      setSimulations((current) => ({ ...current, [state.routeId]: state }))
+      vehiclesRef.current[state.routeId] = state
+
+      // Harita her yayında güncelleniyor: akıcılık buradan geliyor.
+      if (trackedRouteIdRef.current === state.routeId) {
+        drawVehicle(state)
+        followVehicle(state)
+      }
+
+      // Metin saniyede bir: panelde ve bilgi kutusunda yüzdenin 400 ms'de
+      // bir değişmesi kimseye bir şey katmıyor, render maliyeti ise gerçek.
+      const now = performance.now()
+
+      if (now - lastPublishRef.current >= 1000) {
+        lastPublishRef.current = now
+        setSimulations({ ...vehiclesRef.current })
+      }
     })
 
     // StrictMode geliştirmede efekti iki kez çalıştırıyor: ilk bağlantı
@@ -409,7 +488,9 @@ export default function MapView() {
       // then bloğu kapatacak.
       if (connection.state === 'Connected') connection.stop()
     }
-  }, [])
+    // drawVehicle ve followVehicle yalnızca ref'lere bağlı, kimlikleri
+    // sabit: listede olmaları bağlantıyı yeniden kurdurmuyor.
+  }, [drawVehicle, followVehicle])
 
   // Sayfa açıldığında çalışan simülasyonları bir kez soruyoruz: yalnızca
   // SignalR dinleseydik, simülasyon başladıktan sonra giren kullanıcı
@@ -466,48 +547,13 @@ export default function MapView() {
     return () => clearInterval(interval)
   }, [trackedRouteId])
 
-  // Takip edilen hattın aracını haritaya çiziyoruz. Takip edilmeyen
-  // hatların aracı çizilmiyor - "Takip Et" zaten bunun için var.
+  // Takip edilen hat değişince aracı hemen çiziyoruz: bir sonraki
+  // yayını beklemek "Takip Et"e bastıktan sonra yarım saniye boş harita
+  // demek olurdu.
   useEffect(() => {
-    const source = vehicleSourceRef.current
-    if (!source) return
-
-    source.clear()
-
-    const state = trackedRouteId === null ? null : simulations[trackedRouteId]
-    if (!state) return
-
-    const feature = new Feature(new Point(fromLonLat([state.longitude, state.latitude])))
-    feature.set('routeColor', state.routeColor)
-    feature.set('heading', state.heading)
-    feature.set('routeId', state.routeId)
-    source.addFeature(feature)
-  }, [simulations, trackedRouteId, vehicleSourceRef])
-
-  // Kamera aracı görüş alanında tutuyor.
-  //
-  // Her yayında ortalasaydık kullanıcı haritayı kaydıramaz, sürekli geri
-  // çekilirdi. Bunun yerine araç kenara yaklaşınca bir kez ortalıyoruz.
-  useEffect(() => {
-    const map = mapRef.current
-    const state = trackedRouteId === null ? null : simulations[trackedRouteId]
-    if (!map || !state) return
-
-    const center = fromLonLat([state.longitude, state.latitude])
-    const [minX, minY, maxX, maxY] = map.getView().calculateExtent(map.getSize())
-    const marginX = (maxX - minX) * 0.2
-    const marginY = (maxY - minY) * 0.2
-
-    const isComfortablyInside =
-      center[0] > minX + marginX &&
-      center[0] < maxX - marginX &&
-      center[1] > minY + marginY &&
-      center[1] < maxY - marginY
-
-    if (!isComfortablyInside) {
-      map.getView().animate({ center, duration: 500 })
-    }
-  }, [simulations, trackedRouteId, mapRef])
+    trackedRouteIdRef.current = trackedRouteId
+    drawVehicle(trackedRouteId === null ? null : vehiclesRef.current[trackedRouteId] ?? null)
+  }, [trackedRouteId, drawVehicle])
 
   // --- Güzergahları yükle ---
   useEffect(() => {
